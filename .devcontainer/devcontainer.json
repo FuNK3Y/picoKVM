@@ -13,7 +13,8 @@
 			"python.linting.enabled": true,
 			"python.linting.pylintEnabled": true,
 			"python.formatting.provider": "black",
-			"python.analysis.typeCheckingMode": "basic"
+			"python.analysis.typeCheckingMode": "basic",
+			"python.formatting.blackArgs": ["--line-length", "200"]
 		}
 	},
 	"postCreateCommand": "pip install -r requirements.txt"
