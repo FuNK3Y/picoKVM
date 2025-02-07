@@ -1,0 +1,20 @@
+{
+	"name": "Python Dev Container",
+	"image": "micropython/unix:v1.24.1",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"ms-python.vscode-pylance",
+				"ms-python.black-formatter"
+			]
+		},
+		"settings": {
+			"python.linting.enabled": true,
+			"python.linting.pylintEnabled": true,
+			"python.formatting.provider": "black",
+			"python.analysis.typeCheckingMode": "basic"
+		}
+	},
+	"postCreateCommand": "pip install -r requirements.txt"
+}
