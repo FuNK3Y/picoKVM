@@ -33,6 +33,7 @@ class SamsungMonitor(Device):
         channel_uri += f"&token={self.token}"
         async with aiohttp.ClientSession() as session:
             async with session.ws_connect(channel_uri) as ws:
+                await ws.receive_json()
                 for command in commands:
                     message = {
                         "method": "ms.remote.control",
