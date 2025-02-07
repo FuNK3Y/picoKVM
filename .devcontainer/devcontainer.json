@@ -1,6 +1,6 @@
 {
 	"name": "Python Dev Container",
-	"image": "micropython/unix:v1.24.1",
+	"image": "mcr.microsoft.com/devcontainers/python:latest",
 	"customizations": {
 		"vscode": {
 			"extensions": [
