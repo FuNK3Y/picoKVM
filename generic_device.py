@@ -1,8 +1,9 @@
 import aiohttp
 from device import Device
 
+
 class GenericDevice(Device):
-    def __init__(self, uri, method, kwargs={"A":{},"B":{}}):
+    def __init__(self, uri, method, kwargs={"A": {}, "B": {}}):
         super().__init__()
         self.uri = uri
         self.kwargs = kwargs

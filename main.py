@@ -1,4 +1,6 @@
-import network, time, asyncio
+import network
+import time
+import asyncio
 from config import Config
 from webserver import WebServer
 
@@ -7,7 +9,8 @@ Config.load()
 wlan = network.WLAN(network.STA_IF)
 network.hostname(Config.wireless_network["hostname"])
 wlan.active(True)
-wlan.connect(Config.wireless_network["SSID"], Config.wireless_network["password"])
+wlan.connect(Config.wireless_network["SSID"],
+             Config.wireless_network["password"])
 
 while not wlan.isconnected():
     print("Connecting to WLAN...")
@@ -15,11 +18,12 @@ while not wlan.isconnected():
 
 print("Connected, IP address: ", wlan.ifconfig()[0])
 
+
 async def handle_client(reader, writer):
     try:
         request = (await reader.read(1024)).decode("utf-8")
         method, path, _ = request.split(" ", 2)
-        ws=WebServer()
+        ws = WebServer()
         if path.startswith("/api/"):
             await ws.api(writer, method, path)
         else:
