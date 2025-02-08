@@ -14,7 +14,7 @@ The networking enable some unique features:
 - You can control the KVM from any device on the same network (phone, tablet, computer, ...)
 
 ## How does it works
-The Pico will uses the Samsung remote API (https://samsungtv:8002/api/v2/) to inject key presses in order to change inputs. As on my monitor (G80SD) there is sadly no key directly mapped to inputs (like KEY_DISPLAYPORT, KEY_HDMI1). I had to build a sequence of key presses starting from the home screen. The interface is snappy enough to smoothen up this downside.
+The Pico will uses the Samsung remote API (https://samsungtv:8002/api/v2/) to inject key presses in order to change inputs. As on my monitor (G80SD) there is sadly no key directly mapped to inputs (like `KEY_DISPLAYPORT`, `KEY_HDMI1`). I had to build a sequence of key presses starting from the home screen. The interface is snappy enough to smoothen up this downside.
 
 Another alternative would be to use the [SmartThings REST API](https://github.com/ollo69/ha-samsungtv-smart/issues/274#issuecomment-2597627685) - as this API allows for direct input selection. 
 
@@ -30,7 +30,7 @@ Clone localy this repo and copy the files of this repository to your pico ([Thon
 
 Adjust `config.json` with your settings. You need to configure at least your Wi-Fi credentials and the GPIO pin you connected the signal cable from the USB multiplexer to.
 
-Then, you need to configure your monitor. Either make sure that `Connection > Network > Expert Settings > IP Remote : Enabled` or configure SmartThings
+Then, you need to configure your monitor. Either make sure that IP remote is enabled *(Connection > Network > Expert Settings)* or configure SmartThings
 
 ### Samsung Remote API
 Using your remote, find a repeatable pattern of key presses that will allow you to select the correct input. Then, using the [key code reference](https://github.com/ollo69/ha-samsungtv-smart/blob/master/docs/Key_codes.md), adjust `config.json` accordingly.
