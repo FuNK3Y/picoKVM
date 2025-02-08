@@ -1,6 +1,5 @@
 {
 	"name": "Python Dev Container",
-	"image": "mcr.microsoft.com/devcontainers/python:latest",
 	"customizations": {
 		"vscode": {
 			"extensions": [
