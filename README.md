@@ -92,26 +92,30 @@ I did not try it, but creating a device of type `GenericDevice` with [this paylo
 ```
 
 ## How to use
-Currently, there are two ways to operate the KVM. You need to know the IP address until the mDNS discovery issue is sorted out.
+Here is how to connect everything together:
+- Connect computers directly to the monitors
+- Connect USB from the computers to the KVM
+- Connect keyboard & mouse to a USB switch - itself connected to the KVM
+    - The primary monitor should be used as a USB hub (as shown in the schema). In the case of the G80SD it retains the capability to drive the smart features of the monitor with the keyboard & mouse
 
+### Schema
 ```mermaid
-graph TD
-    PC1["Computer 1"] --> |HDMI/DP| MON["Samsung Monitor"]
-    PC2["Computer 2"] --> |HDMI/DP| MON
-    PC1 --> |USB| KVM["USB KVM (Pico W)"]
-    PC2 --> |USB| KVM
-    KVM --> |USB| MON
-    KB["Keyboard"] --> |USB| KVM
-    MOUSE["Mouse"] --> |USB| KVM
-    KVM <--> |WiFi| NET["Network Control"]
-    NET --> WEB["Web Interface"]
-    NET --> API["REST API"]
-    
-    subgraph "Control Methods"
-        WEB
-        API
-    end
+graph LR
+    KB["Keyboard"] <--> |USB| MON
+    MOUSE["Mouse"] <--> |USB| MON
+    KVM <--> |USB| MON
+    PC1["Computer 1"] --> |HDMI/DisplayPort| MON["Monitor"]
+    PC2["Computer 2"] --> |HDMI/DisplayPort| MON
+    PC1 <--> |USB| KVM["picoKVM"]
+    PC2 <--> |USB| KVM
+    style MON fill:#f9f,stroke:#333
+    style KVM fill:#bbf,stroke:#333
+    style KB fill:#ddd,stroke:#333
+    style MOUSE fill:#ddd,stroke:#333
+    style PC1 fill:#ddd,stroke:#333
+    style PC2 fill:#ddd,stroke:#333
 ```
+Currently, there are two ways to operate the KVM. You need to know the IP address until the mDNS discovery issue is sorted out.
 
 ### Web page
 Simply connect to `http://ip_address` and press the only button.
