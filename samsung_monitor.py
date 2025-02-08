@@ -10,13 +10,13 @@ class SamsungMonitor(Device):
         self,
         hostname,
         command_sequences,
-        command_interval=0.1,
+        command_delay=0.1,
         power_on_delay=1,
         token=None,
     ):
         super().__init__()
         self.hostname = hostname
-        self.command_interval = command_interval
+        self.command_delay = command_delay
         self.power_on_delay = power_on_delay
         self.command_sequences = command_sequences
         self.token = token
@@ -51,7 +51,7 @@ class SamsungMonitor(Device):
                         },
                     }
                     await ws.send_json(message)
-                    await asyncio.sleep(self.command_interval)
+                    await asyncio.sleep(self.command_delay)
 
     async def set_input(self, input):
         await self.power_on()
