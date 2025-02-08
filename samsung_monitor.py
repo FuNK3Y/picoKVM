@@ -35,7 +35,7 @@ class SamsungMonitor(Device):
         if not self.token:
             async with aiohttp.ClientSession() as session:
                 async with session.ws_connect(channel_uri) as ws:
-                    self.token = await ws.receive_json()["data"]["token"]
+                    self.token = (await ws.receive_json())["data"]["token"]
         channel_uri += f"&token={self.token}"
         async with aiohttp.ClientSession() as session:
             async with session.ws_connect(channel_uri) as ws:
