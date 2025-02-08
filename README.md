@@ -23,7 +23,7 @@ In order to get this project working you need at least the following components:
 - [A Raspberry Pi Pico 2 W](https://thepihut.com/products/raspberry-pi-pico-2-w)
 - [A USB multiplexer](https://thepihut.com/products/bidirectional-usb-3-multiplexer)
 
-They needs to be wired together(3V3, Ground, Signal over GPIO)
+They needs to be wired together (3V3, Ground, Signal over GPIO)
 
 ## Software setup
 Clone localy this repo and copy the files of this repository to your pico ([Thonny](https://thonny.org/) works great for that). On top you need to install the additional package `aiottp` (this can be done with Thonny as well). Applying [this optional fix](https://github.com/micropython/micropython-lib/pull/972) will greatly increases performance in some scenarios.
