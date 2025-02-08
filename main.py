@@ -9,8 +9,7 @@ Config.load()
 wlan = network.WLAN(network.STA_IF)
 network.hostname(Config.wireless_network["hostname"])
 wlan.active(True)
-wlan.connect(Config.wireless_network["SSID"],
-             Config.wireless_network["password"])
+wlan.connect(Config.wireless_network["SSID"], Config.wireless_network["password"])
 
 while not wlan.isconnected():
     print("Connecting to WLAN...")
@@ -32,6 +31,7 @@ async def handle_client(reader, writer):
         await writer.wait_closed()
     except Exception as e:
         print("Error with client handing: ", e)
+
 
 server = asyncio.start_server(handle_client, "0.0.0.0", 80)
 asyncio.create_task(server)

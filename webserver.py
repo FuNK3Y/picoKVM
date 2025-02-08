@@ -8,8 +8,7 @@ class WebServer:
         self.controller = Controller()
 
     def write_response(self, writer, status_code, content, content_type="application/json"):
-        writer.write(
-            f"HTTP/1.1 {status_code}\r\nContent-Type: {content_type}\r\nContent-Length: {len(content)}\r\nConnection: close\r\n\r\n")
+        writer.write(f"HTTP/1.1 {status_code}\r\nContent-Type: {content_type}\r\nContent-Length: {len(content)}\r\nConnection: close\r\n\r\n")
         writer.write(content)
 
     async def single_page(self, writer):
@@ -23,22 +22,16 @@ class WebServer:
             if match:
                 try:
                     await self.controller.set_input(match.group(1))
-                    self.write_response(writer, "200 OK", json.dumps(
-                        {"active_input": self.controller.selected_input}))
+                    self.write_response(writer, "200 OK", json.dumps({"active_input": self.controller.selected_input}))
                 except Exception as e:
-                    self.write_response(
-                        writer, "500 Internal Server Error", json.dumps({"message": e}))
+                    self.write_response(writer, "500 Internal Server Error", json.dumps({"message": e}))
             else:
-                self.write_response(writer, "404 Not Found",
-                                    json.dumps({"message": "404 Not Found"}))
+                self.write_response(writer, "404 Not Found", json.dumps({"message": "404 Not Found"}))
         elif method == "GET":
             match = re.match(r"^/api/get_active_input/?$", path)
             if match:
-                self.write_response(writer, "200 OK", json.dumps(
-                    {"active_input": self.controller.selected_input}))
+                self.write_response(writer, "200 OK", json.dumps({"active_input": self.controller.selected_input}))
             else:
-                self.write_response(writer, "404 Not Found",
-                                    json.dumps({"message": "404 Not Found"}))
+                self.write_response(writer, "404 Not Found", json.dumps({"message": "404 Not Found"}))
         else:
-            self.write_response(writer, "405 Method Not Allowed", json.dumps(
-                {"message": "Method Not Allowed"}))
+            self.write_response(writer, "405 Method Not Allowed", json.dumps({"message": "Method Not Allowed"}))

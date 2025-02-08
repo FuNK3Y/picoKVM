@@ -6,7 +6,14 @@ from device import Device
 
 
 class SamsungMonitor(Device):
-    def __init__(self, hostname, command_sequences, command_interval=0.1, power_on_delay=1, token=None):
+    def __init__(
+        self,
+        hostname,
+        command_sequences,
+        command_interval=0.1,
+        power_on_delay=1,
+        token=None,
+    ):
         super().__init__()
         self.hostname = hostname
         self.command_interval = command_interval
@@ -23,13 +30,12 @@ class SamsungMonitor(Device):
             await asyncio.sleep(self.power_on_delay)
 
     async def send_commands(self, commands):
-        encoded_name = ubinascii.b2a_base64(
-            network.hostname()).decode().strip()
+        encoded_name = ubinascii.b2a_base64(network.hostname()).decode().strip()
         channel_uri = f"wss://{self.hostname}:8002/api/v2/channels/samsung.remote.control?name={encoded_name}"
         if not self.token:
             async with aiohttp.ClientSession() as session:
                 async with session.ws_connect("channel_uri") as ws:
-                    self.token = await ws.receive_json()['data']['token']
+                    self.token = await ws.receive_json()["data"]["token"]
         channel_uri += f"&token={self.token}"
         async with aiohttp.ClientSession() as session:
             async with session.ws_connect(channel_uri) as ws:
@@ -41,8 +47,8 @@ class SamsungMonitor(Device):
                             "Cmd": "Click",
                             "DataOfCmd": command,
                             "Option": "false",
-                            "TypeOfRemote": "SendRemoteKey"
-                        }
+                            "TypeOfRemote": "SendRemoteKey",
+                        },
                     }
                     await ws.send_json(message)
                     await asyncio.sleep(self.command_interval)
