@@ -19,7 +19,7 @@ class SamsungMonitor(Device):
             async with session.get(f"https://{self.hostname}:8002/api/v2/") as response:
                 power_state = (await response.json())["device"]["PowerState"]
         if power_state != "on":
-            self.send_commands(["KEY_POWER"])
+            await self.send_commands(["KEY_POWER"])
             await asyncio.sleep(self.power_on_delay)
 
     async def send_commands(self, commands):
