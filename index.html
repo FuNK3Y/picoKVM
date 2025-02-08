@@ -30,49 +30,28 @@
         }
     </style>
     <script>
-        async function fetchActiveInput() {
-            try {
-                const response = await fetch('/api/get_active_input/');
-                const data = await response.json();
-                if (response.ok)
-                    updateButton(data.active_input);
-                else
-                    updateButtonError(data.message);
-            } catch (error) {
-                console.error('Error fetching selected input:', error);
+        async function activeInput(action = 'get') {
+            const url = action === 'set' ? '/api/set_active_input/' : '/api/get_active_input/';
+            const options = action === 'set' ? { method: 'POST' } : {};
+            const response = await fetch(url, options);
+            const data = await response.json();
+
+            if (response.ok) {
+                document.querySelector('#button-text').innerText = 'Active input: ' + data.active_input;
+                document.querySelector('.api-button').style.backgroundColor = data.active_input === 'A' ? '#007BFF' : '#2a7690';
+            } else {
+                document.querySelector('#button-text').innerText = 'Error: ' + data.message;
+                document.querySelector('.api-button').style.backgroundColor = '#ff2d00';
             }
         }
 
-        async function switchActiveInput() {
-            try {
-                const response = await fetch('/api/set_active_input/', { method: 'POST' });
-                const data = await response.json();
-                if (response.ok)
-                    updateButton(data.active_input);
-                else
-                    updateButtonError(data.message);
-            } catch (error) {
-                document.querySelector('#button-text').innerText = reponse.text()
-                console.error('Error when switching input:', error);
-            }
-        }
-
-        function updateButton(activeInput) {
-            document.querySelector('#button-text').innerText = 'Active input : ' + activeInput;
-            document.querySelector('.api-button').style.backgroundColor = activeInput === 'A' ? '#007BFF' : '#2a7690';
-        }
-        function updateButtonError(exception) {
-            document.querySelector('#button-text').innerText = 'Error : ' + exception;
-            document.querySelector('.api-button').style.backgroundColor = '#ff2d00'
-        }
-
-        window.onload = fetchActiveInput();
+        window.onload = activeInput();
     </script>
 </head>
 
 <body>
     <div class="button-container">
-        <button class="api-button" onclick="switchActiveInput()">
+        <button class="api-button" onclick="activeInput('set')">
             <span id="button-text">Loading...</span>
         </button>
     </div>
