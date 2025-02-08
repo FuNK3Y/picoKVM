@@ -30,7 +30,7 @@ Clone localy this repo and copy the files of this repository to your pico ([Thon
 
 Adjust `config.json` with your settings. You need to configure at least your Wi-Fi credentials and the GPIO pin you connected the signal cable from the USB multiplexer to.
 
-Then, you need to configure your monitor.
+Then, you need to configure your monitor. Either make sure that `Connection > Network > Expert Settings > IP Remote : Enabled` or configure SmartThings
 
 ### Samsung Remote API
 Using your remote, find a repeatable pattern of key presses that will allow you to select the correct input. Then, using the [key code reference](https://github.com/ollo69/ha-samsungtv-smart/blob/master/docs/Key_codes.md), adjust `config.json` accordingly.
@@ -93,6 +93,25 @@ I did not try it, but creating a device of type `GenericDevice` with [this paylo
 
 ## How to use
 Currently, there are two ways to operate the KVM. You need to know the IP address until the mDNS discovery issue is sorted out.
+
+```mermaid
+graph TD
+    PC1["Computer 1"] --> |HDMI/DP| MON["Samsung Monitor"]
+    PC2["Computer 2"] --> |HDMI/DP| MON
+    PC1 --> |USB| KVM["USB KVM (Pico W)"]
+    PC2 --> |USB| KVM
+    KVM --> |USB| MON
+    KB["Keyboard"] --> |USB| KVM
+    MOUSE["Mouse"] --> |USB| KVM
+    KVM <--> |WiFi| NET["Network Control"]
+    NET --> WEB["Web Interface"]
+    NET --> API["REST API"]
+    
+    subgraph "Control Methods"
+        WEB
+        API
+    end
+```
 
 ### Web page
 Simply connect to `http://ip_address` and press the only button.
