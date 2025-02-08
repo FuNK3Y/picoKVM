@@ -1,0 +1,58 @@
+{
+    "wireless_network": {
+        "SSID": "SSID",
+        "hostname": "picokvm",
+        "password": "wifi-password"
+    },
+    "devices": [
+        {
+            "data": {
+                "command_sequences": {
+                    "A": [
+                        "KEY_HOME",
+                        "KEY_LEFT",
+                        "KEY_DOWN",
+                        "KEY_RIGHT",
+                        "KEY_ENTER"
+                    ],
+                    "B": [
+                        "KEY_HOME",
+                        "KEY_LEFT",
+                        "KEY_DOWN",
+                        "KEY_RIGHT",
+                        "KEY_RIGHT",
+                        "KEY_ENTER"
+                    ]
+                },
+                "hostname": "192.168.1.20",
+                "command_interval": 0.1,
+                "power_on_delay": 1
+            },
+            "type": "SamsungMonitor"
+        },
+        {
+            "data": {
+                "uri": "https://api.smartthings.com/v1/devices/deviceId/commands",
+                "method": "POST",
+                "kwargs": {
+                    "A": {
+                        "headers": {
+                            "Content-Type": "application/json",
+                            "Autorization": "Bearer token"
+                        },
+                        "data": "{\"commands\":[{\"component\":\"main\",\"capability\":\"samsungvd.mediaInputSource\",\"command\":\"setInputSource\",\"arguments\":[\"Display Port\"]}]}"
+                    },
+                    "B": {
+                        "headers": {
+                            "Content-Type": "application/json",
+                            "Autorization": "Bearer token"
+                        },
+                        "data": "{\"commands\":[{\"component\":\"main\",\"capability\":\"samsungvd.mediaInputSource\",\"command\":\"setInputSource\",\"arguments\":[\"HDMI1\"]}]}"
+                    }
+                }
+            },
+            "type": "GenericDevice"
+        }
+    ],
+    "usb_gpio_pin": 28
+}
