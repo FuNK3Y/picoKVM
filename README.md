@@ -129,13 +129,7 @@ Issue a `POST` request to `http://ip_address/api/set_active_input/A` or `B`.
 ```powershell
 Invoke-WebRequest -Method POST "http://ip_address/api/set_active_input/A"
 ```
-
 ## Next steps
-- Find a nice hardware button for easier input switching.
-- 3D print a case to hold everything together.
-- Support mDNS for easy discovery - apparently stuck on [this issue](https://github.com/micropython/micropython/pull/16641).
-
-## Roadmap
-- [ ] Hardware button integration for physical input switching
-- [ ] 3D printable case design
+- [ ] Find a nice hardware button for easier input switching.
+- [ ] 3D print a case to hold everything together.
 - [ ] mDNS support (blocked by [micropython#16641](https://github.com/micropython/micropython/pull/16641))
