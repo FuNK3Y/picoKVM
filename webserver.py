@@ -1,11 +1,10 @@
 import re
 import json
-from controller import Controller
 
 
 class WebServer:
-    def __init__(self):
-        self.controller = Controller()
+    def __init__(self, controller):
+        self.controller = controller
 
     def write_response(self, writer, status_code, content, content_type="application/json"):
         writer.write(f"HTTP/1.1 {status_code}\r\nContent-Type: {content_type}\r\nContent-Length: {len(content)}\r\nConnection: close\r\n\r\n")

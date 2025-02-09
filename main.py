@@ -3,8 +3,10 @@ import time
 import asyncio
 from config import Config
 from webserver import WebServer
+from controller import Controller
 
 Config.load()
+controller = Controller()
 
 wlan = network.WLAN(network.STA_IF)
 network.hostname(Config.wireless_network["hostname"])
@@ -22,7 +24,7 @@ async def handle_client(reader, writer):
     try:
         request = (await reader.read(1024)).decode("utf-8")
         method, path, _ = request.split(" ", 2)
-        ws = WebServer()
+        ws = WebServer(controller)
         if path.startswith("/api/"):
             await ws.api(writer, method, path)
         else:
