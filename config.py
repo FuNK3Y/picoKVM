@@ -7,6 +7,7 @@ from samsung_monitor import SamsungMonitor
 class Config:
     wireless_network = {}
     usb_gpio_pin = 0
+    led_gpio_pin = "LED"
     devices = []
     __configFile = "config.json"
 

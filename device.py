@@ -1,5 +1,5 @@
 class Device:
-    def select_input(self, input):
+    def set_active_input(self, input):
         pass
 
     def to_dict(self):

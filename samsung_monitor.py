@@ -53,6 +53,6 @@ class SamsungMonitor(Device):
                     await ws.send_json(message)
                     await asyncio.sleep(self.command_delay)
 
-    async def set_input(self, input):
+    async def set_active_input(self, input):
         await self.power_on()
         await self.send_commands(self.command_sequences[input])

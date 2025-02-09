@@ -54,5 +54,6 @@
             "type": "GenericDevice"
         }
     ],
-    "usb_gpio_pin": 28
+    "usb_gpio_pin": 28,
+    "led_gpio_pin": "LED"
 }

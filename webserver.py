@@ -21,7 +21,7 @@ class WebServer:
             match = re.match(r"^/api/set_active_input/?(?:/([AB])/?)?$", path)
             if match:
                 try:
-                    await self.controller.set_input(match.group(1))
+                    await self.controller.set_active_input(match.group(1))
                     self.write_response(writer, "200 OK", json.dumps({"active_input": self.controller.selected_input}))
                 except Exception as e:
                     self.write_response(writer, "500 Internal Server Error", json.dumps({"message": e}))
