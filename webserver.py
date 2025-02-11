@@ -6,6 +6,19 @@ class WebServer:
     def __init__(self, controller):
         self.controller = controller
 
+    async def handle_client(self, reader, writer):
+        try:
+            request = (await reader.read(1024)).decode("utf-8")
+            method, path, _ = request.split(" ", 2)
+            if path.startswith("/api/"):
+                await self.api(writer, method, path)
+            else:
+                await self.single_page(writer)
+            await writer.drain()
+            await writer.wait_closed()
+        except Exception as e:
+            print("Error with client handing: ", e)
+
     def write_response(self, writer, status_code, content, content_type="application/json"):
         writer.write(f"HTTP/1.1 {status_code}\r\nContent-Type: {content_type}\r\nContent-Length: {len(content)}\r\nConnection: close\r\n\r\n")
         writer.write(content)

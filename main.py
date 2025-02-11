@@ -19,23 +19,7 @@ while not wlan.isconnected():
 
 print("Connected, IP address: ", wlan.ifconfig()[0])
 
-
-async def handle_client(reader, writer):
-    try:
-        request = (await reader.read(1024)).decode("utf-8")
-        method, path, _ = request.split(" ", 2)
-        ws = WebServer(controller)
-        if path.startswith("/api/"):
-            await ws.api(writer, method, path)
-        else:
-            await ws.single_page(writer)
-        await writer.drain()
-        await writer.wait_closed()
-    except Exception as e:
-        print("Error with client handing: ", e)
-
-
-server = asyncio.start_server(handle_client, "0.0.0.0", 80)
+server = asyncio.start_server(WebServer(controller).handle_client, "0.0.0.0", 80)
 asyncio.create_task(server)
 loop = asyncio.get_event_loop()
 
