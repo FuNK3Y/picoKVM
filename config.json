@@ -55,5 +55,6 @@
         }
     ],
     "usb_gpio_pin": 28,
+    "button_gpio_pin": 22,
     "led_gpio_pin": "LED"
 }

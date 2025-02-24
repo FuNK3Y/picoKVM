@@ -19,6 +19,8 @@ while not wlan.isconnected():
 
 print("Connected, IP address: ", wlan.ifconfig()[0])
 
+machine.Pin(Config.button_gpio_pin, machine.Pin.IN).irq(trigger=machine.Pin.IRQ_RISING, handler=lambda pin: asyncio.run(controller.set_active_input()))
+
 server = asyncio.start_server(WebServer(controller).handle_client, "0.0.0.0", 80)
 asyncio.create_task(server)
 loop = asyncio.get_event_loop()

@@ -25,6 +25,8 @@ In order to get this project working you need at least the following components:
 
 They needs to be wired together (3V3, Ground, Signal over GPIO)
 
+You can add a physical button, I went with [this one](https://www.temu.com/goods.html?_bg_fs=1&goods_id=601099531486299). Pick a GPIO port for the LED and the button and update the config accordingly.
+
 ## Software setup
 Clone localy this repo and copy the files of this repository to your pico ([Thonny](https://thonny.org/) works great for that). On top you need to install the additional package `aiottp` (this can be done with Thonny as well). Applying [this optional fix](https://github.com/micropython/micropython-lib/pull/972) will greatly increases performance in some scenarios.
 
@@ -130,6 +132,5 @@ Issue a `POST` request to `http://ip_address/api/set_active_input/A` or `B`.
 Invoke-WebRequest -Method POST "http://ip_address/api/set_active_input/A"
 ```
 ## Next steps
-- [ ] Find a nice hardware button for easier input switching.
 - [ ] 3D print a case to hold everything together.
 - [ ] mDNS support (blocked by [micropython#16641](https://github.com/micropython/micropython/pull/16641))
