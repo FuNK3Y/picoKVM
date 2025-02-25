@@ -24,11 +24,15 @@ class Controller:
 
         async with self.__lock:
             blink_led_task = asyncio.create_task(blink_led())
-            if not input:
-                input = "A" if self.selected_input == "B" else "B"
-            tasks = [asyncio.create_task(device.set_active_input(input)) for device in Config.devices]
-            await asyncio.gather(*tasks)
-            Config.save()  # In order to persist tokens
-            Pin(Config.usb_gpio_pin, Pin.OUT).value(0 if input == "A" else 1)
-            blink_led_task.cancel()
-            await blink_led_task
+            try:
+                if not input:
+                    input = "A" if self.selected_input == "B" else "B"
+                tasks = [asyncio.create_task(device.set_active_input(input)) for device in Config.devices]
+                await asyncio.gather(*tasks)
+                Config.save()  # In order to persist tokens
+                Pin(Config.usb_gpio_pin, Pin.OUT).value(0 if input == "A" else 1)
+            except Exception:
+                raise
+            finally:
+                blink_led_task.cancel()
+                await blink_led_task
