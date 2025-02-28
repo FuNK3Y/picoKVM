@@ -67,7 +67,7 @@ The pattern will be different for every input (`A` & `B`).
     ]
 }
 ```
-You can finally fine-tune the delay between each command to make sure the interface can keep track of those (`command_delay`). Optionaly, the delay for a given command can be overriden - should it be slower than the rest.
+You can finally fine-tune the delay between each command to make sure the interface can keep track of those (`command_delay`). Optionally, the delay for a given command can be overriden - should it be slower than the rest.
 
 If the monitor is not powered on during an input switch, it will be automatically turned on so that commands can be registered.
 
