@@ -43,23 +43,31 @@ The pattern will be different for every input (`A` & `B`).
 ```json
 "command_sequences": {
     "A": [
-        "KEY_HOME",
+        {
+            "command": "KEY_HOME",
+            "delay": 0.4
+        },
         "KEY_LEFT",
         "KEY_DOWN",
+        "KEY_RIGHT",
         "KEY_RIGHT",
         "KEY_ENTER"
     ],
     "B": [
-        "KEY_HOME",
+        {
+            "command": "KEY_HOME",
+            "delay": 0.4
+        },
         "KEY_LEFT",
         "KEY_DOWN",
+        "KEY_RIGHT",
         "KEY_RIGHT",
         "KEY_RIGHT",
         "KEY_ENTER"
     ]
 }
 ```
-You can finally fine-tune the delay between each command to make sure the interface can keep track of those (`command_delay`).
+You can finally fine-tune the delay between each command to make sure the interface can keep track of those (`command_delay`). Optionaly, the delay for a given command can be overriden - should it be slower than the rest.
 
 If the monitor is not powered on during an input switch, it will be automatically turned on so that commands can be registered.
 
@@ -129,7 +137,7 @@ Issue a `POST` request to `http://ip_address/api/set_active_input/A` or `B`.
 
 #### PowerShell example:
 ```powershell
-Invoke-WebRequest -Method POST "http://ip_address/api/set_active_input/A"
+Invoke-RestMethod -Method POST "http://ip_address/api/set_active_input/A"
 ```
 ## Next steps
 - [ ] 3D print a case to hold everything together.
