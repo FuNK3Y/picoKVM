@@ -7,26 +7,34 @@
     "devices": [
         {
             "data": {
+                "command_delay": 0.1,
                 "command_sequences": {
                     "A": [
-                        "KEY_HOME",
+                        {
+                            "command": "KEY_HOME",
+                            "delay": 0.4
+                        },
                         "KEY_LEFT",
                         "KEY_DOWN",
+                        "KEY_RIGHT",
                         "KEY_RIGHT",
                         "KEY_ENTER"
                     ],
                     "B": [
-                        "KEY_HOME",
+                        {
+                            "command": "KEY_HOME",
+                            "delay": 0.4
+                        },
                         "KEY_LEFT",
                         "KEY_DOWN",
+                        "KEY_RIGHT",
                         "KEY_RIGHT",
                         "KEY_RIGHT",
                         "KEY_ENTER"
                     ]
                 },
                 "hostname": "192.168.1.20",
-                "command_delay": 0.1,
-                "power_on_delay": 1
+                "power_on_delay": 3
             },
             "type": "SamsungMonitor"
         },

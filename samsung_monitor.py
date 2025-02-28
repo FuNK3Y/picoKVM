@@ -41,6 +41,11 @@ class SamsungMonitor(Device):
             async with session.ws_connect(channel_uri) as ws:
                 await ws.receive_json()
                 for command in commands:
+                    if isinstance(command, dict):
+                        command_delay = command["delay"]
+                        command = command["command"]
+                    else:
+                        command_delay = self.command_delay
                     message = {
                         "method": "ms.remote.control",
                         "params": {
@@ -51,7 +56,7 @@ class SamsungMonitor(Device):
                         },
                     }
                     await ws.send_json(message)
-                    await asyncio.sleep(self.command_delay)
+                    await asyncio.sleep(command_delay)
 
     async def set_active_input(self, input):
         await self.power_on()
