@@ -2,10 +2,10 @@
 An inexpensive network KVM that can switch USB and monitor inputs simultaneously
 
 ## Why
-Samsung makes great monitor, but they often lack a KVM. This project's ambition is to take advantage of the smart features of those monitors to build one with unique features.
+Samsung makes great monitors, but they often lack a KVM. This project's ambition is to take advantage of the smart features of those monitors to build one with unique features.
 
 ## Features
-The networking enable some unique features:
+The networking enables some unique features:
 - It can control as many monitor as you can connect to your computers, as long as those can be driven over IP
 - Monitor signal is not subject to any degradation, as every computer is connected directly to each monitor
 - Other devices can be controlled as well - provided they can be driven by IP
@@ -23,12 +23,12 @@ In order to get this project working you need at least the following components:
 - [A Raspberry Pi Pico 2 W](https://thepihut.com/products/raspberry-pi-pico-2-w)
 - [A USB multiplexer](https://thepihut.com/products/bidirectional-usb-3-multiplexer)
 
-They needs to be wired together (3V3, Ground, Signal over GPIO)
+They need to be wired together (3V3, Ground, Signal over GPIO)
 
 You can add a physical button, I went with [this one](https://www.temu.com/goods.html?_bg_fs=1&goods_id=601099531486299). Pick a GPIO port for the LED and the button and update the config accordingly.
 
 ## Software setup
-Clone localy this repo and copy the files of this repository to your pico ([Thonny](https://thonny.org/) works great for that). On top you need to install the additional package `aiottp` (this can be done with Thonny as well). Applying [this optional fix](https://github.com/micropython/micropython-lib/pull/972) will greatly increases performance in some scenarios.
+Clone locally this repo and copy the files of this repository to your pico ([Thonny](https://thonny.org/) works great for that). On top you need to install the additional package `aiottp` (this can be done with Thonny as well). Applying [this optional fix](https://github.com/micropython/micropython-lib/pull/972) will greatly increases performance in some scenarios.
 
 Adjust `config.json` with your settings. You need to configure at least your Wi-Fi credentials and the GPIO pin you connected the signal cable from the USB multiplexer to.
 
