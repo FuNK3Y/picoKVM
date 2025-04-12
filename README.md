@@ -14,7 +14,7 @@ The networking enables some unique features:
 - You can control the KVM from any device on the same network (phone, tablet, computer, ...)
 
 ## How does it works
-The Pico will uses the Samsung remote API (https://samsungtv:8002/api/v2/) to inject key presses in order to change inputs. As on my monitor (G80SD) there is sadly no key directly mapped to inputs (like `KEY_DISPLAYPORT`, `KEY_HDMI1`). I had to build a sequence of key presses starting from the home screen. The interface is snappy enough to smoothen up this downside.
+The Pico will uses the Samsung remote API (https://samsungtv:8002/api/v2/) to inject key presses in order to change inputs. As on my monitors (G80SD & M70d) there is sadly no key directly mapped to inputs (like `KEY_DISPLAYPORT`, `KEY_HDMI1`). I had to build a sequence of key presses starting from the home screen. The interface is snappy enough to smoothen up this downside.
 
 Another alternative would be to use the [SmartThings REST API](https://github.com/ollo69/ha-samsungtv-smart/issues/274#issuecomment-2597627685) - as this API allows for direct input selection. 
 
@@ -28,7 +28,7 @@ They need to be wired together (3V3, Ground, Signal over GPIO)
 You can add a physical button, I went with [this one](https://www.temu.com/goods.html?_bg_fs=1&goods_id=601099531486299). Pick a GPIO port for the LED and the button and update the config accordingly.
 
 ## Software setup
-Clone locally this repo and copy the files of this repository to your pico ([Thonny](https://thonny.org/) works great for that). On top you need to install the additional package `aiottp` (this can be done with Thonny as well). Applying [this optional fix](https://github.com/micropython/micropython-lib/pull/972) will greatly increases performance in some scenarios.
+Clone locally this repo and copy the files of this repository to your pico ([Thonny](https://thonny.org/) works great for that). On top you need to install the additional package `aiottp` (this can be done with Thonny as well).
 
 Adjust `config.json` with your settings. You need to configure at least your Wi-Fi credentials and the GPIO pin you connected the signal cable from the USB multiplexer to.
 
@@ -114,8 +114,8 @@ graph LR
     KB["Keyboard"] <--> |USB| MON
     MOUSE["Mouse"] <--> |USB| MON
     KVM <--> |USB| MON
-    PC1["Computer 1"] --> |HDMI/DisplayPort| MON["Monitor"]
-    PC2["Computer 2"] --> |HDMI/DisplayPort| MON
+    PC1["Computer 1"] --> |Video| MON["Monitor"]
+    PC2["Computer 2"] --> |Video| MON
     PC1 <--> |USB| KVM["picoKVM"]
     PC2 <--> |USB| KVM
     style MON fill:#f9f,stroke:#333
@@ -125,20 +125,17 @@ graph LR
     style PC1 fill:#ddd,stroke:#333
     style PC2 fill:#ddd,stroke:#333
 ```
-Currently, there are two ways to operate the KVM. You need to know the IP address until the mDNS discovery issue is sorted out.
+On top of the physical button, there are two ways to operate the KVM. You need to know the `$hostname` of the device to connect (default value is picokvm)
 
 ### Web page
-Simply connect to `http://ip_address` and press the only button.
+Simply connect to `http://$hostname.local` and press the only button.
 
 ### API
-Issue a `POST` request to `http://ip_address/api/set_active_input/A` or `B`.
+Issue a `POST` request to `http://$hostname.local$/api/set_active_input/A` or `B`.
 
 **_NOTE:_** If the input name is omitted, it will act as a toggle.
 
 #### PowerShell example:
 ```powershell
-Invoke-RestMethod -Method POST "http://ip_address/api/set_active_input/A"
+Invoke-RestMethod -Method POST "http://$hostname.local$/api/set_active_input/A"
 ```
-## Next steps
-- [ ] 3D print a case to hold everything together.
-- [ ] mDNS support (blocked by [micropython#16641](https://github.com/micropython/micropython/pull/16641))
