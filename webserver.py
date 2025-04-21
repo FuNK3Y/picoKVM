@@ -17,7 +17,7 @@ class WebServer:
             await writer.drain()
             await writer.wait_closed()
         except Exception as e:
-            print("Error with client handing: ", e)
+            print("Error with client handing:", e)
 
     def write_response(self, writer, status_code, content, content_type="application/json"):
         writer.write(f"HTTP/1.1 {status_code}\r\nContent-Type: {content_type}\r\nContent-Length: {len(content)}\r\nConnection: close\r\n\r\n")
