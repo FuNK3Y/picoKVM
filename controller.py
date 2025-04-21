@@ -4,7 +4,7 @@ from config import Config
 
 
 class Controller:
-    __lock = asyncio.Lock()
+    _lock = asyncio.Lock()
 
     @property
     def selected_input(self):
@@ -21,8 +21,9 @@ class Controller:
                     await asyncio.sleep(0.1)
             except asyncio.CancelledError:
                 led.off()
+                raise
 
-        async with self.__lock:
+        async with self._lock:
             blink_led_task = asyncio.create_task(blink_led())
             try:
                 if not input:
@@ -35,4 +36,4 @@ class Controller:
                 raise
             finally:
                 blink_led_task.cancel()
-                await blink_led_task
+                await asyncio.gather(blink_led_task, return_exceptions=True)
