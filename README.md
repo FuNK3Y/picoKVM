@@ -44,6 +44,10 @@ The pattern will be different for every input (`A` & `B`).
 "command_sequences": {
     "A": [
         {
+            "command": "KEY_ENTER",
+            "delay": 2
+        },
+        {
             "command": "KEY_HOME",
             "delay": 0.4
         },
@@ -54,6 +58,10 @@ The pattern will be different for every input (`A` & `B`).
         "KEY_ENTER"
     ],
     "B": [
+        {
+            "command": "KEY_ENTER",
+            "delay": 2
+        },
         {
             "command": "KEY_HOME",
             "delay": 0.4
@@ -69,7 +77,7 @@ The pattern will be different for every input (`A` & `B`).
 ```
 You can finally fine-tune the delay between each command to make sure the interface can keep track of those (`command_delay`). Optionally, the delay for a given command can be overriden - should it be slower than the rest.
 
-If the monitor is not powered on during an input switch, it will be automatically turned on so that commands can be registered.
+If the monitor is not powered on during an input switch, it will be automatically turned on (this is what `KEY_ENTER` is for)
 
 ### SmartThings API
 I did not try it, but creating a device of type `GenericDevice` with [this payload](https://github.com/ollo69/ha-samsungtv-smart/issues/274#issuecomment-2597627685) should work fine.
@@ -139,3 +147,6 @@ Issue a `POST` request to `http://$hostname.local$/api/set_active_input/A` or `B
 ```powershell
 Invoke-RestMethod -Method POST "http://$hostname.local$/api/set_active_input/A"
 ```
+
+### Troubleshooting
+Pressing the button for more than 10 seconds will reset the Pico

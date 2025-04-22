@@ -3,7 +3,7 @@ import asyncio
 
 
 class ButtonHandler:
-    def __init__(self, pin, callback, debounce=0.05):
+    def __init__(self, pin, callback, debounce=0.04):
         self._downCounter = 0
         self.pin = machine.Pin(pin, machine.Pin.IN)
         self.debounce = debounce
@@ -16,7 +16,7 @@ class ButtonHandler:
             if self._downCounter >= self.reset_counter:
                 print("Resetting...")
                 machine.reset()
-            if self._downCounter > 0 and self.pin.value() == 1:
+            elif self._downCounter > 0 and self.pin.value() == 1:
                 self._downCounter = 0
                 try:
                     await self.callback()
