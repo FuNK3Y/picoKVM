@@ -31,7 +31,7 @@
     </style>
     <script>
         async function activeInput(action = 'get') {
-            const url = action === 'set' ? '/api/set_active_input/' : '/api/get_active_input/';
+            const url = '/api/active_input/';
             const options = action === 'set' ? { method: 'POST' } : {};
             if (action === 'set')
                 document.querySelector('#button-text').innerText = 'Switching...';

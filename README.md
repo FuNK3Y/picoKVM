@@ -139,13 +139,13 @@ On top of the physical button, there are two ways to operate the KVM. You need t
 Simply connect to `http://$hostname.local` and press the only button.
 
 ### API
-Issue a `POST` request to `http://$hostname.local$/api/set_active_input/A` or `B`.
+Issue a `POST` request to `http://$hostname.local$/api/active_input/A` or `B`.
 
 **_NOTE:_** If the input name is omitted, it will act as a toggle.
 
 #### PowerShell example:
 ```powershell
-Invoke-RestMethod -Method POST "http://$hostname.local$/api/set_active_input/A"
+Invoke-RestMethod -Method POST "http://$hostname.local$/api/active_input/A"
 ```
 
 ### Troubleshooting
