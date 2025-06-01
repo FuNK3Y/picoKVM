@@ -18,34 +18,35 @@ class SamsungMonitor(Device):
         self.command_delay = command_delay
         self.command_sequences = command_sequences
         self.token = token
-        self._clientSession = aiohttp.ClientSession()
 
     async def send_commands(self, commands):
         encoded_name = ubinascii.b2a_base64(network.hostname()).decode().strip()
         channel_uri = f"wss://{self.hostname}:8002/api/v2/channels/samsung.remote.control?name={encoded_name}"
         if not self.token:
-            async with self._clientSession.ws_connect(channel_uri) as ws:
-                self.token = (await ws.receive_json())["data"]["token"]
+            async with aiohttp.ClientSession() as session:
+                async with session.ws_connect(channel_uri) as ws:
+                    self.token = (await ws.receive_json())["data"]["token"]
         channel_uri += f"&token={self.token}"
-        async with self._clientSession.ws_connect(channel_uri) as ws:
-            await ws.receive_json()
-            for command in commands:
-                if isinstance(command, dict):
-                    command_delay = command["delay"]
-                    command = command["command"]
-                else:
-                    command_delay = self.command_delay
-                message = {
-                    "method": "ms.remote.control",
-                    "params": {
-                        "Cmd": "Click",
-                        "DataOfCmd": command,
-                        "Option": "false",
-                        "TypeOfRemote": "SendRemoteKey",
-                    },
-                }
-                await ws.send_json(message)
-                await asyncio.sleep(command_delay)
+        async with aiohttp.ClientSession() as session:
+            async with session.ws_connect(channel_uri) as ws:
+                await ws.receive_json()
+                for command in commands:
+                    if isinstance(command, dict):
+                        command_delay = command["delay"]
+                        command = command["command"]
+                    else:
+                        command_delay = self.command_delay
+                    message = {
+                        "method": "ms.remote.control",
+                        "params": {
+                            "Cmd": "Click",
+                            "DataOfCmd": command,
+                            "Option": "false",
+                            "TypeOfRemote": "SendRemoteKey",
+                        },
+                    }
+                    await ws.send_json(message)
+                    await asyncio.sleep(command_delay)
 
     async def set_active_input(self, input):
         await self.send_commands(self.command_sequences[input])
