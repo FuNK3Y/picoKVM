@@ -32,10 +32,13 @@ class SamsungMonitor(Device):
                 await ws.receive_json()
                 for command in commands:
                     if isinstance(command, dict):
-                        command_delay = command["delay"]
+                        command_delay = command.get("delay", self.command_delay)
+                        repeat = command.get("repeat", 1)
                         command = command["command"]
+
                     else:
                         command_delay = self.command_delay
+                        repeat = 1
                     message = {
                         "method": "ms.remote.control",
                         "params": {
@@ -45,8 +48,9 @@ class SamsungMonitor(Device):
                             "TypeOfRemote": "SendRemoteKey",
                         },
                     }
-                    await ws.send_json(message)
-                    await asyncio.sleep(command_delay)
+                    for x in range(repeat):
+                        await ws.send_json(message)
+                        await asyncio.sleep(command_delay)
 
     async def set_active_input(self, input):
         await self.send_commands(self.command_sequences[input])
