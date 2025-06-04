@@ -1,4 +1,5 @@
 import asyncio
+import gc
 from machine import Pin
 from config import Config
 
@@ -23,6 +24,7 @@ class Controller:
                 led.off()
                 raise
 
+        gc.collect()
         async with self._lock:
             blink_led_task = asyncio.create_task(blink_led())
             try:
@@ -37,3 +39,4 @@ class Controller:
             finally:
                 blink_led_task.cancel()
                 await asyncio.gather(blink_led_task, return_exceptions=True)
+                gc.collect()

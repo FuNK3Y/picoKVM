@@ -35,7 +35,6 @@ class SamsungMonitor(Device):
                         command_delay = command.get("delay", self.command_delay)
                         repeat = command.get("repeat", 1)
                         command = command["command"]
-
                     else:
                         command_delay = self.command_delay
                         repeat = 1
