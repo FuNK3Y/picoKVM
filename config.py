@@ -10,17 +10,17 @@ class Config:
     button_gpio_pin = 0
     led_gpio_pin = "LED"
     devices = []
-    __configFile = "config.json"
+    _configFile = "config.json"
 
     def save():
-        attributes_to_save = {k: v for k, v in Config.__dict__.items() if not callable(v) and not k.startswith("__") and k != "devices"}
+        attributes_to_save = {k: v for k, v in Config.__dict__.items() if not callable(v) and not k.startswith("_") and k != "devices"}
         devices = {"devices": [{"type": type(device).__name__, "data": device.to_dict()} for device in Config.devices]}
         attributes_to_save.update(devices)
-        with open(Config.__configFile, "w") as file:
+        with open(Config._configFile, "w") as file:
             file.write(json.dumps(attributes_to_save))
 
     def load():
-        with open(Config.__configFile, "r") as file:
+        with open(Config._configFile, "r") as file:
             content = json.loads(file.read())
         for key in (k for k in content.keys() if k != "devices"):
             setattr(Config, key, content[key])
