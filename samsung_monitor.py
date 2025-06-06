@@ -47,7 +47,7 @@ class SamsungMonitor(Device):
                             "TypeOfRemote": "SendRemoteKey",
                         },
                     }
-                    for x in range(repeat):
+                    for _ in range(repeat):
                         await ws.send_json(message)
                         await asyncio.sleep(command_delay)
 
