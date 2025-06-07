@@ -23,7 +23,7 @@ In order to get this project working you need at least the following components:
 - [A Raspberry Pi Pico 2 W](https://thepihut.com/products/raspberry-pi-pico-2-w)
 - [A USB multiplexer](https://thepihut.com/products/bidirectional-usb-3-multiplexer)
 
-They need to be wired together (3V3, Ground, Signal over GPIO)
+They need to be wired together (3V3 -> VSYS, Ground, Signal over GPIO)
 
 You can add a physical button, I went with [this one](https://www.temu.com/goods.html?_bg_fs=1&goods_id=601099531486299). Pick a GPIO port for the LED and the button and update the config accordingly.
 
