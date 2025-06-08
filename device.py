@@ -3,8 +3,7 @@ class Device:
         pass
 
     def to_dict(self):
-        result = self.__dict__.copy()
-        return result
+        return {key: value for key, value in self.__dict__.items() if not key.startswith("_")}
 
     @classmethod
     def from_dict(cls, data):

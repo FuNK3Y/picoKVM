@@ -1,5 +1,6 @@
 import re
 import json
+import sys
 
 
 class WebServer:
@@ -37,6 +38,7 @@ class WebServer:
                     self.write_response(writer, "200 OK", json.dumps({"active_input": self.controller.selected_input}))
                 except Exception as e:
                     self.write_response(writer, "500 Internal Server Error", json.dumps({"message": e}))
+                    sys.print_exception(e)
             else:
                 self.write_response(writer, "404 Not Found", json.dumps({"message": "404 Not Found"}))
         elif method == "GET":

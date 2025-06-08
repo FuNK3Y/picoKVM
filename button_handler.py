@@ -1,5 +1,6 @@
 import machine
 import asyncio
+import sys
 
 
 class ButtonHandler:
@@ -22,6 +23,7 @@ class ButtonHandler:
                     await self.callback()
                 except Exception as e:
                     print("Uncaught exception in callback:", e)
+                    sys.print_exception(e)
             elif self.pin.value() == 0:
                 self._downCounter += 1
             await asyncio.sleep(self.debounce)
