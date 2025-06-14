@@ -7,10 +7,11 @@ from samsung_monitor import SamsungMonitor
 class Config:
     wireless_network = {}
     usb_gpio_pin = 0
-    button_gpio_pin = 0
-    led_gpio_pin = "LED"
+    button_gpio_pin = "BUTTON"
+    led_gpio_pin = "LED_RGB"
     devices = []
     _configFile = "config.json"
+    inputs = {"A": {"color": "#007BFF", "name": "PC"}, "B": {"color": "#902a8d", "name": "Laptop"}}
 
     def save():
         attributes_to_save = {k: v for k, v in Config.__dict__.items() if not callable(v) and not k.startswith("_") and k != "devices"}

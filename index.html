@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PicoKVM</title>
+    <title>{{hostname}}</title>
     <style>
         body {
             display: flex;
@@ -39,8 +39,9 @@
             const data = await response.json();
 
             if (response.ok) {
-                document.querySelector('#button-text').innerText = 'Active input: ' + data.active_input;
-                document.querySelector('.api-button').style.backgroundColor = data.active_input === 'A' ? '#007BFF' : '#2a7690';
+                input = Object.keys(data.active_input)[0];
+                document.querySelector('#button-text').innerText = 'Active input: ' + data.active_input[input].name;
+                document.querySelector('.api-button').style.backgroundColor = data.active_input[input].color;
             } else {
                 document.querySelector('#button-text').innerText = 'Error: ' + data.message;
                 document.querySelector('.api-button').style.backgroundColor = '#ff2d00';

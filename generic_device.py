@@ -8,8 +8,8 @@ class GenericDevice(Device):
         self.uri = uri
         self.kwargs = kwargs
         self.method = method
+        self._clientSession = aiohttp.ClientSession()
 
     async def set_active_input(self, input):
-        async with aiohttp.ClientSession() as session:
-            async with session.request(self.method, self.uri, **self.kwargs[input]) as response:
-                return await response.text()
+        async with self._clientSession.request(self.method, self.uri, **self.kwargs[input]) as response:
+            return await response.text()

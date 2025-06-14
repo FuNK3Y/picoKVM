@@ -1,49 +1,60 @@
 {
+    "inputs": {
+        "A": {
+            "color": "#007BFF",
+            "name": "PC"
+        },
+        "B": {
+            "color": "#902a8d",
+            "name": "Laptop"
+        }
+    },
     "wireless_network": {
         "SSID": "SSID",
-        "hostname": "picokvm",
+        "hostname": "PicoKVM",
         "password": "wifi-password"
     },
     "devices": [
         {
             "data": {
-                "command_delay": 0.2,
+                "command_delay": 0.1,
                 "command_sequences": {
                     "A": [
                         {
-                            "command": "KEY_ENTER",
-                            "delay": 2
+                            "command": "KEY_RETURN",
+                            "delay": 2.2
+                        },
+                        "KEY_SOURCE",
+                        {
+                            "command": "KEY_LEFT",
+                            "repeat": 10
                         },
                         {
-                            "command": "KEY_HOME",
-                            "delay": 0.4
+                            "command": "KEY_RIGHT",
+                            "repeat": 2
                         },
-                        "KEY_LEFT",
-                        "KEY_DOWN",
-                        "KEY_RIGHT",
-                        "KEY_RIGHT",
                         "KEY_ENTER"
                     ],
                     "B": [
                         {
-                            "command": "KEY_ENTER",
-                            "delay": 2
+                            "command": "KEY_RETURN",
+                            "delay": 2.2
+                        },
+                        "KEY_SOURCE",
+                        {
+                            "command": "KEY_LEFT",
+                            "repeat": 10
                         },
                         {
-                            "command": "KEY_HOME",
-                            "delay": 0.4
+                            "command": "KEY_RIGHT",
+                            "repeat": 3
                         },
-                        "KEY_LEFT",
-                        "KEY_DOWN",
-                        "KEY_RIGHT",
-                        "KEY_RIGHT",
-                        "KEY_RIGHT",
                         "KEY_ENTER"
                     ]
                 },
-                "hostname": "192.168.1.20"
-            },
-            "type": "SamsungMonitor"
+                "hostname": "192.168.1.20",
+                "type": "SamsungMonitor"
+            }
         },
         {
             "data": {
@@ -69,7 +80,7 @@
             "type": "GenericDevice"
         }
     ],
-    "usb_gpio_pin": 28,
-    "button_gpio_pin": 22,
-    "led_gpio_pin": "LED"
+    "usb_gpio_pin": "G1",
+    "button_gpio_pin": "BUTTON",
+    "led_gpio_pin": "LED_RGB"
 }

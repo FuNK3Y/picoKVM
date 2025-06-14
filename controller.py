@@ -1,5 +1,6 @@
 import asyncio
 import gc
+import neopixel
 from machine import Pin
 from config import Config
 
@@ -12,24 +13,27 @@ class Controller:
         return "A" if Pin(Config.usb_gpio_pin, Pin.OUT).value() == 0 else "B"
 
     async def set_active_input(self, input=None):
-        async def blink_led():
-            led = Pin(Config.led_gpio_pin, Pin.OUT)
+        async def blink_led(color):
+            led = neopixel.NeoPixel(Pin(Config.led_gpio_pin, Pin.OUT), 1)
+            rgb = [int(color.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4)]
             try:
                 while True:
-                    led.on()
+                    led[0] = rgb
+                    led.write()
                     await asyncio.sleep(0.1)
-                    led.off()
+                    led[0] = (0, 0, 0)
+                    led.write()
                     await asyncio.sleep(0.1)
             except asyncio.CancelledError:
-                led.off()
+                led[0] = (0, 0, 0)
+                led.write()
                 raise
 
-        gc.collect()
         async with self._lock:
-            blink_led_task = asyncio.create_task(blink_led())
+            if not input:
+                input = "A" if self.selected_input == "B" else "B"
+            blink_led_task = asyncio.create_task(blink_led(Config.inputs[input]["color"]))
             try:
-                if not input:
-                    input = "A" if self.selected_input == "B" else "B"
                 tasks = [asyncio.create_task(device.set_active_input(input)) for device in Config.devices]
                 await asyncio.wait_for(asyncio.gather(*tasks), timeout=20)
                 Config.save()  # In order to persist tokens
@@ -39,4 +43,3 @@ class Controller:
             finally:
                 blink_led_task.cancel()
                 await asyncio.gather(blink_led_task, return_exceptions=True)
-                gc.collect()

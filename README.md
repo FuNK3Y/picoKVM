@@ -1,4 +1,4 @@
-# picoKVM
+# PicoKVM
 An inexpensive network KVM that can switch USB and monitor inputs simultaneously
 
 ## Why
@@ -14,21 +14,21 @@ The networking enables some unique features:
 - You can control the KVM from any device on the same network (phone, tablet, computer, ...)
 
 ## How does it works
-The Pico will uses the Samsung remote API (https://samsungtv:8002/api/v2/) to inject key presses in order to change inputs. As on my monitors (G80SD & M70d) there is sadly no key directly mapped to inputs (like `KEY_DISPLAYPORT`, `KEY_HDMI1`). I had to build a sequence of key presses starting from the home screen. The interface is snappy enough to smoothen up this downside.
+The Atom will uses the Samsung remote API (https://samsungtv:8002/api/v2/) to inject key presses in order to change inputs. As on my monitors (G80SD & M70d) there is sadly no key directly mapped to inputs (like `KEY_DISPLAYPORT`, `KEY_HDMI1`). I had to build a sequence of key presses starting from the home screen. The interface is snappy enough to smoothen up this downside.
 
 Another alternative would be to use the [SmartThings REST API](https://github.com/ollo69/ha-samsungtv-smart/issues/274#issuecomment-2597627685) - as this API allows for direct input selection. 
 
 ## Hardware setup
 In order to get this project working you need at least the following components:
-- [A Raspberry Pi Pico 2 W](https://thepihut.com/products/raspberry-pi-pico-2-w)
+- [m5stack AtomS3 Lite](https://shop.m5stack.com/products/atoms3-lite-esp32s3-dev-kit)
 - [A USB multiplexer](https://thepihut.com/products/bidirectional-usb-3-multiplexer)
 
-They need to be wired together (3V3, Ground, Signal over GPIO)
+They need to be wired together (Ground, Signal over GPIO (`G1` by default))
 
-You can add a physical button, I went with [this one](https://www.temu.com/goods.html?_bg_fs=1&goods_id=601099531486299). Pick a GPIO port for the LED and the button and update the config accordingly.
+You can add a physical button, I went with [this one](https://shop.m5stack.com/products/mechanical-key-button-unit). Pick a GPIO port for the LED and the button and update the config accordingly.
 
 ## Software setup
-Clone locally this repo and copy the files of this repository to your pico ([Thonny](https://thonny.org/) works great for that). On top you need to install the additional package `aiottp` (this can be done with Thonny as well).
+Clone locally this repo and copy the files of this repository to your atom ([Thonny](https://thonny.org/) works great for that). On top you need to install the additional packages `aiottp`and `micropython-mdns` (this can be done with Thonny as well).
 
 Adjust `config.json` with your settings. You need to configure at least your Wi-Fi credentials and the GPIO pin you connected the signal cable from the USB multiplexer to.
 
@@ -44,40 +44,41 @@ The pattern will be different for every input (`A` & `B`).
 "command_sequences": {
     "A": [
         {
-            "command": "KEY_ENTER",
-            "delay": 2
+            "command": "KEY_RETURN",
+            "delay": 2.2
+        },
+        "KEY_SOURCE",
+        {
+            "command": "KEY_LEFT",
+            "repeat": 10
         },
         {
-            "command": "KEY_HOME",
-            "delay": 0.4
+            "command": "KEY_RIGHT",
+            "repeat": 2
         },
-        "KEY_LEFT",
-        "KEY_DOWN",
-        "KEY_RIGHT",
-        "KEY_RIGHT",
         "KEY_ENTER"
     ],
     "B": [
         {
-            "command": "KEY_ENTER",
-            "delay": 2
+            "command": "KEY_RETURN",
+            "delay": 2.2
+        },
+        "KEY_SOURCE",
+        {
+            "command": "KEY_LEFT",
+            "repeat": 10
         },
         {
-            "command": "KEY_HOME",
-            "delay": 0.4
+            "command": "KEY_RIGHT",
+            "repeat": 3
         },
-        "KEY_LEFT",
-        "KEY_DOWN",
-        "KEY_RIGHT",
-        "KEY_RIGHT",
-        "KEY_RIGHT",
         "KEY_ENTER"
     ]
-}
+    }
 ```
 You can finally fine-tune the delay between each command to make sure the interface can keep track of those (`command_delay`). Optionally, the delay for a given command can be overriden - should it be slower than the rest.
 
-If the monitor is not powered on during an input switch, it will be automatically turned on (this is what `KEY_ENTER` is for)
+If the monitor is not powered on during an input switch, it will be automatically turned on (this is what `KEY_RETURN` is for)
 
 ### SmartThings API
 I did not try it, but creating a device of type `GenericDevice` with [this payload](https://github.com/ollo69/ha-samsungtv-smart/issues/274#issuecomment-2597627685) should work fine.
@@ -149,4 +150,4 @@ Invoke-RestMethod -Method POST "http://$hostname.local$/api/active_input/A"
 ```
 
 ### Troubleshooting
-Pressing the button for more than 10 seconds will reset the Pico
+Pressing the button for more than 10 seconds will reset the Atom
