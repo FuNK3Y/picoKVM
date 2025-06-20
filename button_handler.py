@@ -10,7 +10,6 @@ class ButtonHandler:
         self.debounce = debounce
         self.callback = callback
         self.reset_counter = 10 / debounce
-        machine.Pin(pin, machine.Pin.OUT).on()  # To avoid the initial trigger on machine.reset()
 
     async def poll(self):
         while True:
