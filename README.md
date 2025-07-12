@@ -151,3 +151,4 @@ Invoke-RestMethod -Method POST "http://$hostname.local$/api/active_input/A"
 
 ### Troubleshooting
 Pressing the button for more than 10 seconds will reset the Atom
+`/metrics` provide memory related information and wifi signal strengh. It cand can be ingested by prometheus

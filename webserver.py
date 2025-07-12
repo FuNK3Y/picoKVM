@@ -5,7 +5,8 @@ from config import Config
 
 
 class WebServer:
-    def __init__(self, controller):
+    def __init__(self, controller, metrics_provider=None):
+        self.metrics_provider = metrics_provider
         self.controller = controller
         with open("index.html", "r") as file:
             self._single_page_content = file.read()
@@ -18,6 +19,8 @@ class WebServer:
             method, path, _ = request.split(" ", 2)
             if path.startswith("/api/"):
                 await self.api(writer, method, path)
+            elif self.metrics_provider and path == "/metrics" and method == "GET":
+                await self.metrics(writer)
             else:
                 await self.single_page(writer)
             await writer.drain()
@@ -29,6 +32,9 @@ class WebServer:
     def write_response(self, writer, status_code, content, content_type="application/json"):
         writer.write(f"HTTP/1.1 {status_code}\r\nContent-Type: {content_type}\r\nContent-Length: {len(content)}\r\nConnection: close\r\n\r\n")
         writer.write(content)
+
+    async def metrics(self, writer):
+        self.write_response(writer, "200 OK", self.metrics_provider.metrics(), "text/plain")
 
     async def single_page(self, writer):
         self.write_response(writer, "200 OK", self._single_page_content, "text/html")
