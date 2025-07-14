@@ -38,4 +38,9 @@ esp_heap_free_bytes{{region="{region}"}} {data[1]}
 esp_heap_largest_free_block{{region="{region}"}} {data[2]}
 esp_heap_minimum_free_bytes{{region="{region}"}} {data[3]}
 """
+        output += f"""
+# HELP esp_mcu_temperature Temperature of the MCU in degree
+# TYPE esp_mcu_temperature gauge
+esp_mcu_temperature {esp32.mcu_temperature()}
+"""
         return output
