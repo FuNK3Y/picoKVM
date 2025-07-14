@@ -1,5 +1,4 @@
 import asyncio
-import gc
 import neopixel
 from machine import Pin
 from config import Config
@@ -29,7 +28,6 @@ class Controller:
                 led.write()
                 raise
 
-        gc.collect()
         async with self._lock:
             if not input:
                 input = "A" if self.selected_input == "B" else "B"
@@ -44,4 +42,3 @@ class Controller:
             finally:
                 blink_led_task.cancel()
                 await asyncio.gather(blink_led_task, return_exceptions=True)
-                gc.collect()
