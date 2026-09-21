@@ -50,9 +50,9 @@
                             "repeat": 3
                         },
                         "KEY_ENTER"
-                    ],
-                    "hostname": "192.168.1.20"
-                }
+                    ]
+                },
+                "hostname": "192.168.1.20"
             },
             "type": "SamsungMonitor"
         },
@@ -64,14 +64,14 @@
                     "A": {
                         "headers": {
                             "Content-Type": "application/json",
-                            "Autorization": "Bearer token"
+                            "Authorization": "Bearer token"
                         },
                         "data": "{\"commands\":[{\"component\":\"main\",\"capability\":\"samsungvd.mediaInputSource\",\"command\":\"setInputSource\",\"arguments\":[\"Display Port\"]}]}"
                     },
                     "B": {
                         "headers": {
                             "Content-Type": "application/json",
-                            "Autorization": "Bearer token"
+                            "Authorization": "Bearer token"
                         },
                         "data": "{\"commands\":[{\"component\":\"main\",\"capability\":\"samsungvd.mediaInputSource\",\"command\":\"setInputSource\",\"arguments\":[\"HDMI1\"]}]}"
                     }

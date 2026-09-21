@@ -39,7 +39,7 @@
             const data = await response.json();
 
             if (response.ok) {
-                input = Object.keys(data.active_input)[0];
+                const input = Object.keys(data.active_input)[0];
                 document.querySelector('#button-text').innerText = 'Active input: ' + data.active_input[input].name;
                 document.querySelector('.api-button').style.backgroundColor = data.active_input[input].color;
             } else {
@@ -48,7 +48,7 @@
             }
         }
 
-        window.onload = activeInput();
+        window.onload = () => activeInput();
     </script>
 </head>
 

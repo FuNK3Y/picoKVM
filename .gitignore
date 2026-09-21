@@ -1,0 +1,6 @@
+# Written by the device at runtime: holds the Wi-Fi password and the monitor pairing token
+config.json
+config.json.tmp
+
+__pycache__/
+*.pyc

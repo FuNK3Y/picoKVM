@@ -37,8 +37,6 @@ class Controller:
                 await asyncio.wait_for(asyncio.gather(*tasks), timeout=20)
                 Config.save()  # In order to persist tokens
                 Pin(Config.usb_gpio_pin, Pin.OUT).value(0 if input == "A" else 1)
-            except Exception:
-                raise
             finally:
                 blink_led_task.cancel()
                 await asyncio.gather(blink_led_task, return_exceptions=True)
