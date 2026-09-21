@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import neopixel
 from machine import Pin
 from config import Config
@@ -36,6 +37,7 @@ class Controller:
             blink_led_task = asyncio.create_task(blink_led(Config.inputs[input]["color"]))
             try:
                 for attempt in range(self._switch_attempts):
+                    gc.collect()  # A failed wrap_socket strands a connected socket; only its finaliser returns it to the ESP-IDF heap
                     tasks = []
                     try:
                         tasks = [asyncio.create_task(device.set_active_input(input)) for device in Config.devices]
