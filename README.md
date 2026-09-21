@@ -6,7 +6,7 @@ Samsung makes great monitors, but they often lack a KVM. This project's ambition
 
 ## Features
 The networking enables some unique features:
-- It can control as many monitor as you can connect to your computers, as long as those can be driven over IP
+- It can control as many monitors as you can connect to your computers, as long as those can be driven over IP
 - Monitor signal is not subject to any degradation, as every computer is connected directly to each monitor
 - Other devices can be controlled as well - provided they can be driven by IP
     - You could for instance switch the color of a lamp - based on the selected input of the KVM
@@ -28,9 +28,11 @@ They need to be wired together (Ground, Signal over GPIO (`G1` by default))
 You can add a physical button, I went with [this one](https://shop.m5stack.com/products/mechanical-key-button-unit). Pick a GPIO port for the LED and the button and update the config accordingly.
 
 ## Software setup
-Clone locally this repo and copy the files of this repository to your atom ([Thonny](https://thonny.org/) works great for that). On top you need to install the additional package `aiottp` (this can be done with Thonny as well).
+Clone locally this repo and copy the files of this repository to your atom ([Thonny](https://thonny.org/) works great for that). On top you need to install the additional package `aiohttp` (this can be done with Thonny as well).
 
-Adjust `config.json` with your settings. You need to configure at least your Wi-Fi credentials and the GPIO pin you connected the signal cable from the USB multiplexer to.
+Copy `config.example.json` to `config.json` and adjust it with your settings. You need to configure at least your Wi-Fi credentials and the GPIO pin you connected the signal cable from the USB multiplexer to.
+
+`config.json` is deliberately not tracked by git: the device rewrites it at runtime to persist the monitor pairing token, so it ends up holding both that token and your Wi-Fi password.
 
 Then, you need to configure your monitor. Either make sure that IP remote is enabled *(Connection > Network > Expert Settings)* or configure SmartThings
 
@@ -151,4 +153,4 @@ Invoke-RestMethod -Method POST "http://$hostname.local/api/active_input/A"
 
 ### Troubleshooting
 Pressing the button for more than 10 seconds will reset the Atom
-`/metrics` provide memory related information and wifi signal strengh. It cand can be ingested by prometheus
+`/metrics` provide memory related information and wifi signal strength. It can be ingested by prometheus

@@ -15,21 +15,35 @@ class WebServer:
 
     async def handle_client(self, reader, writer):
         try:
-            request = (await reader.read(1024)).decode("utf-8")
-            method, path, _ = request.split(" ", 2)
-            if path.startswith("/api/"):
-                await self.api(writer, method, path)
-            elif self.metrics_provider and path == "/metrics" and method == "GET":
-                await self.metrics(writer)
-            else:
-                await self.single_page(writer)
-            await writer.drain()
-            await writer.wait_closed()
+            request_line = await reader.readline()
+            if request_line:  # Browsers routinely open a connection and close it without sending anything
+                while await reader.readline() not in (b"\r\n", b"\n", b""):  # Drain the headers
+                    pass
+                await self.route(writer, request_line)
+                await writer.drain()
         except Exception as e:
             print("Error with client handing:", e)
             sys.print_exception(e)
+        finally:
+            await writer.wait_closed()
+
+    async def route(self, writer, request_line):
+        try:
+            method, path, _ = request_line.decode("utf-8").split(" ", 2)
+        except (ValueError, UnicodeError):
+            self.write_response(writer, "400 Bad Request", json.dumps({"message": "Bad Request"}))
+            return
+        if path.startswith("/api/"):
+            await self.api(writer, method, path)
+        elif self.metrics_provider and path == "/metrics" and method == "GET":
+            await self.metrics(writer)
+        elif path == "/" and method == "GET":
+            await self.single_page(writer)
+        else:
+            self.write_response(writer, "404 Not Found", json.dumps({"message": "404 Not Found"}))
 
     def write_response(self, writer, status_code, content, content_type="application/json"):
+        content = content.encode()
         writer.write(f"HTTP/1.1 {status_code}\r\nContent-Type: {content_type}\r\nContent-Length: {len(content)}\r\nConnection: close\r\n\r\n")
         writer.write(content)
 
@@ -47,7 +61,7 @@ class WebServer:
                     await self.controller.set_active_input(match.group(1))
                     self.write_response(writer, "200 OK", json.dumps({"active_input": {self.controller.selected_input: Config.inputs[self.controller.selected_input]}}))
                 except Exception as e:
-                    self.write_response(writer, "500 Internal Server Error", json.dumps({"message": e}))
+                    self.write_response(writer, "500 Internal Server Error", json.dumps({"message": str(e)}))
             else:
                 self.write_response(writer, "404 Not Found", json.dumps({"message": "404 Not Found"}))
         elif method == "GET":

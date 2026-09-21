@@ -2,7 +2,6 @@ import ubinascii
 import network
 import aiohttp
 import asyncio
-import ssl
 from device import Device
 
 
@@ -19,14 +18,16 @@ class SamsungMonitor(Device):
         self.command_delay = command_delay
         self.command_sequences = command_sequences
         self.token = token
-        self._ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         self._clientSession = aiohttp.ClientSession()
-        self._client_encoded_name = ubinascii.b2a_base64(network.hostname()).decode().strip()
+
+    @property
+    def _client_encoded_name(self):
+        return ubinascii.b2a_base64(network.hostname()).decode().strip()
 
     async def send_commands(self, commands):
         channel_uri = f"wss://{self.hostname}:8002/api/v2/channels/samsung.remote.control?name={self._client_encoded_name}"
         if not self.token:
-            async with self._clientSession.ws_connect(channel_uri, self._ssl_context) as ws:
+            async with self._clientSession.ws_connect(channel_uri) as ws:
                 self.token = (await ws.receive_json())["data"]["token"]
         channel_uri += f"&token={self.token}"
         async with self._clientSession.ws_connect(channel_uri) as ws:

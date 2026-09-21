@@ -6,7 +6,7 @@ import sys
 class ButtonHandler:
     def __init__(self, pin, callback, debounce=0.04):
         self._downCounter = 0
-        self.pin = machine.Pin(pin, machine.Pin.IN)
+        self.pin = machine.Pin(pin, machine.Pin.IN, machine.Pin.PULL_UP)
         self.debounce = debounce
         self.callback = callback
         self.reset_counter = 10 / debounce
