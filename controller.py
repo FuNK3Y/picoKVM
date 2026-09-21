@@ -6,6 +6,8 @@ from config import Config
 
 class Controller:
     _lock = asyncio.Lock()
+    _switch_timeout = 45  # A monitor in standby has to bring its websocket service up before KEY_RETURN can even be sent
+    _switch_attempts = 2
 
     @property
     def selected_input(self):
@@ -32,15 +34,23 @@ class Controller:
             if not input:
                 input = "A" if self.selected_input == "B" else "B"
             blink_led_task = asyncio.create_task(blink_led(Config.inputs[input]["color"]))
-            tasks = []
             try:
-                tasks = [asyncio.create_task(device.set_active_input(input)) for device in Config.devices]
-                await asyncio.wait_for(asyncio.gather(*tasks), timeout=20)
+                for attempt in range(self._switch_attempts):
+                    tasks = []
+                    try:
+                        tasks = [asyncio.create_task(device.set_active_input(input)) for device in Config.devices]
+                        await asyncio.wait_for(asyncio.gather(*tasks), timeout=self._switch_timeout)
+                        break
+                    except Exception as e:
+                        if attempt + 1 == self._switch_attempts:
+                            raise
+                        print("Switch attempt", attempt + 1, "failed, retrying:", e)
+                    finally:
+                        for task in tasks:  # wait_for abandons them on timeout, and an abandoned task never closes its TLS session
+                            task.cancel()
+                            await asyncio.gather(task, return_exceptions=True)
                 Config.save()  # In order to persist tokens
                 Pin(Config.usb_gpio_pin, Pin.OUT).value(0 if input == "A" else 1)
             finally:
-                for task in tasks:  # wait_for abandons them on timeout, and an abandoned task never closes its TLS session
-                    task.cancel()
-                    await asyncio.gather(task, return_exceptions=True)
                 blink_led_task.cancel()
                 await asyncio.gather(blink_led_task, return_exceptions=True)
