@@ -32,11 +32,15 @@ class Controller:
             if not input:
                 input = "A" if self.selected_input == "B" else "B"
             blink_led_task = asyncio.create_task(blink_led(Config.inputs[input]["color"]))
+            tasks = []
             try:
                 tasks = [asyncio.create_task(device.set_active_input(input)) for device in Config.devices]
                 await asyncio.wait_for(asyncio.gather(*tasks), timeout=20)
                 Config.save()  # In order to persist tokens
                 Pin(Config.usb_gpio_pin, Pin.OUT).value(0 if input == "A" else 1)
             finally:
+                for task in tasks:  # wait_for abandons them on timeout, and an abandoned task never closes its TLS session
+                    task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
                 blink_led_task.cancel()
                 await asyncio.gather(blink_led_task, return_exceptions=True)
