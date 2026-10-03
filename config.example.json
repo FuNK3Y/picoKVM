@@ -16,6 +16,30 @@
     },
     "devices": [
         {
+            "type": "DdcMonitor",
+            "data": {
+                "sda_gpio_pin": 1,
+                "scl_gpio_pin": 2,
+                "inputs": {
+                    "A": 15,
+                    "B": 17
+                },
+                "power_on": false
+            }
+        },
+        {
+            "type": "DdcMonitor",
+            "data": {
+                "sda_gpio_pin": 4,
+                "scl_gpio_pin": 5,
+                "inputs": {
+                    "A": 15,
+                    "B": 17
+                },
+                "power_on": false
+            }
+        },
+        {
             "data": {
                 "command_delay": 0.1,
                 "command_sequences": {
@@ -80,7 +104,18 @@
             "type": "GenericDevice"
         }
     ],
-    "usb_gpio_pin": "G1",
-    "button_gpio_pin": "BUTTON",
-    "led_gpio_pin": "LED_RGB"
+    "usb_gpio_pin": 8,
+    "usb_enable_gpio_pin": 9,
+    "peripheral_power_gpio_pin": 10,
+    "peripheral_fault_gpio_pin": 16,
+    "vbus_sense_gpio_pins": {
+        "A": 11,
+        "B": 12
+    },
+    "button_gpio_pin": 13,
+    "led_gpio_pin": [
+        14,
+        17
+    ],
+    "led_idle_brightness": 0.2
 }

@@ -14,27 +14,70 @@ The networking enables some unique features:
 - You can control the KVM from any device on the same network (phone, tablet, computer, ...)
 
 ## How does it works
-The Atom will uses the Samsung remote API (https://samsungtv:8002/api/v2/) to inject key presses in order to change inputs. As on my monitors (G80SD & M70d) there is sadly no key directly mapped to inputs (like `KEY_DISPLAYPORT`, `KEY_HDMI1`). I had to build a sequence of key presses starting from the home screen. The interface is snappy enough to smoothen up this downside.
+The KVM switches the USB devices between two computers and tells the monitors to change input at the same time. Monitors can be driven over the network (Samsung remote API, SmartThings or any HTTP API) or, with the picoKVM board, directly over HDMI DDC/CI.
+
+With the Samsung remote API, the KVM uses the Samsung remote API (https://samsungtv:8002/api/v2/) to inject key presses in order to change inputs. As on my monitors (G80SD & M70d) there is sadly no key directly mapped to inputs (like `KEY_DISPLAYPORT`, `KEY_HDMI1`). I had to build a sequence of key presses starting from the home screen. The interface is snappy enough to smoothen up this downside.
 
 Another alternative would be to use the [SmartThings REST API](https://github.com/ollo69/ha-samsungtv-smart/issues/274#issuecomment-2597627685) - as this API allows for direct input selection. 
 
 ## Hardware setup
-In order to get this project working you need at least the following components:
+
+### picoKVM board (recommended)
+A dedicated board, designed in this repository ([`hardware/`](hardware/README.md)): an ESP32-S3 module, a USB 3.0 switch (two USB-B inputs for the computers, one USB-A port for the peripherals, including peripheral power switching and current limiting), two HDMI ports carrying DDC/CI only (no video) to switch monitor inputs, an RGB status LED, and a Grove port for an [M5Stack mechanical key unit](https://shop.m5stack.com/products/mechanical-key-button-unit) used as the switch button.
+
+![picoKVM board](hardware/revA/img/iso.png)
+
+`config.example.json` is set up for this board (pin map in [hardware/README.md](hardware/README.md#firmware-contract)). Connect an HDMI cable from each HDMI port to a monitor whose input should follow the KVM, and enable DDC/CI in the monitor's menu.
+
+### M5Stack AtomS3 Lite + USB multiplexer
+The original build, still supported:
 - [m5stack AtomS3 Lite](https://shop.m5stack.com/products/atoms3-lite-esp32s3-dev-kit)
 - [A USB multiplexer](https://thepihut.com/products/bidirectional-usb-3-multiplexer)
 
 They need to be wired together (Ground, Signal over GPIO (`G1` by default))
 
-You can add a physical button, I went with [this one](https://shop.m5stack.com/products/mechanical-key-button-unit). Pick a GPIO port for the LED and the button and update the config accordingly.
+You can add a physical button, I went with [this one](https://shop.m5stack.com/products/mechanical-key-button-unit). Pick a GPIO port for the LED and the button and update the config accordingly. Use `"usb_gpio_pin": "G1"`, `"button_gpio_pin": "BUTTON"`, `"led_gpio_pin": "LED_RGB"` and leave out the board-only settings below.
 
 ## Software setup
-Clone locally this repo and copy the files of this repository to your atom ([Thonny](https://thonny.org/) works great for that). On top you need to install the additional package `aiohttp` (this can be done with Thonny as well).
+For the picoKVM board, flash the MicroPython `ESP32_GENERIC_S3` firmware, **SPIRAM** variant (the module has 2 MB of PSRAM), through the AUX / FLASH USB-C port: hold BOOT, press RESET, release BOOT, then use `esptool`. That port is also the MicroPython REPL afterwards.
+
+Clone locally this repo and copy the files of this repository (not the `hardware/` folder) to your board ([Thonny](https://thonny.org/) works great for that). On top you need to install the additional package `aiohttp` (this can be done with Thonny as well).
 
 Copy `config.example.json` to `config.json` and adjust it with your settings. You need to configure at least your Wi-Fi credentials and the GPIO pin you connected the signal cable from the USB multiplexer to.
 
 `config.json` is deliberately not tracked by git: the device rewrites it at runtime to persist the monitor pairing token, so it ends up holding both that token and your Wi-Fi password.
 
-Then, you need to configure your monitor. Either make sure that IP remote is enabled *(Connection > Network > Expert Settings)* or configure SmartThings
+### Settings
+
+| key | what |
+|---|---|
+| `usb_gpio_pin` | USB select output: low = input `A`, high = input `B` |
+| `button_gpio_pin` | switch button, active low |
+| `led_gpio_pin` | SK6812/WS2812 data pin, or a list of pins (board: on-board LED and Grove key LED) |
+| `led_idle_brightness` | `0`: LEDs off after a switch; `0` to `1`: keep showing the active input's color at that brightness |
+| `usb_enable_gpio_pin` | board only: enables the USB data switches (active low, off until the firmware starts) |
+| `peripheral_power_gpio_pin` | board only: peripheral port power; cycled on each switch so the peripheral re-enumerates on the new computer |
+| `peripheral_fault_gpio_pin` | board only: peripheral over-current / over-temperature flag (reported in `/metrics`) |
+| `vbus_sense_gpio_pins` | board only: `{"A": pin, "B": pin}`, high while that computer powers its USB port (reported in `/metrics`) |
+
+Then, you need to configure your monitor. On the picoKVM board, DDC/CI (below) needs no network. Otherwise, either make sure that IP remote is enabled *(Connection > Network > Expert Settings)* or configure SmartThings
+
+### DDC/CI (picoKVM board)
+Each HDMI port of the board is a `DdcMonitor` device: `sda_gpio_pin` / `scl_gpio_pin` are `1` / `2` for HDMI 1 and `4` / `5` for HDMI 2. `inputs` maps `A` and `B` to the VESA MCCS value of the monitor's input source (VCP `0x60`): commonly `15` (DisplayPort 1), `16` (DisplayPort 2), `17` (HDMI 1), `18` (HDMI 2). Some monitors use their own values: read VCP `0x60` with a DDC tool (`ddcutil getvcp 60` on Linux, *ControlMyMonitor* on Windows) while each input is active. `power_on` also sends power-on (VCP `0xD6`) first, for monitors that keep DDC/CI alive in standby.
+
+```json
+{
+    "data": {
+        "sda_gpio_pin": 1,
+        "scl_gpio_pin": 2,
+        "inputs": {"A": 15, "B": 17},
+        "power_on": false
+    },
+    "type": "DdcMonitor"
+}
+```
+
+Not every monitor implements DDC/CI (the Samsung G80SD does not); use one of the network APIs below for those.
 
 ### Samsung Remote API
 Using your remote, find a repeatable pattern of key presses that will allow you to select the correct input. Then, using the [key code reference](https://github.com/ollo69/ha-samsungtv-smart/blob/master/docs/Key_codes.md), adjust `config.json` accordingly.
@@ -117,6 +160,7 @@ Here is how to connect everything together:
 - Connect computers directly to the monitors
 - Connect USB from the computers to the KVM
 - Connect keyboard & mouse to a USB switch - itself connected to the KVM
+- With the picoKVM board, connect its HDMI 1 / HDMI 2 ports to the monitors that should switch over DDC/CI (control only, the video still goes directly from the computers to the monitors)
     - The primary monitor should be used as a USB hub (as shown in the schema). In the case of the G80SD it retains the capability to drive the smart features of the monitor with the keyboard & mouse
 
 ### Schema
@@ -152,5 +196,5 @@ Invoke-RestMethod -Method POST "http://$hostname.local/api/active_input/A"
 ```
 
 ### Troubleshooting
-Pressing the button for more than 10 seconds will reset the Atom
-`/metrics` provide memory related information and wifi signal strength. It can be ingested by prometheus
+Pressing the button for more than 10 seconds will reset the device
+`/metrics` provide memory related information and wifi signal strength (plus, on the picoKVM board, which computers power their USB port and the peripheral fault flag). It can be ingested by prometheus
