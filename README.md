@@ -186,6 +186,7 @@ graph LR
     PC2["Computer 2"] --> |Video| MON
     PC1 <--> |USB| KVM["picoKVM"]
     PC2 <--> |USB| KVM
+    KVM -.-> |"HDMI (DDC/CI only)"| MON
     style MON fill:#f9f,stroke:#333
     style KVM fill:#bbf,stroke:#333
     style KB fill:#ddd,stroke:#333
@@ -193,6 +194,8 @@ graph LR
     style PC1 fill:#ddd,stroke:#333
     style PC2 fill:#ddd,stroke:#333
 ```
+The dashed link is the picoKVM board's HDMI port: it carries only DDC/CI to switch the monitor's input (no video). With network-controlled monitors (Samsung remote API, SmartThings, ...) it is not needed.
+
 On top of the physical button, there are two ways to operate the KVM. You need to know the `$hostname` of the device to connect (default value is picokvm)
 
 ### Web page
