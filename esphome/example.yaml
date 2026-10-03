@@ -10,6 +10,7 @@ substitutions:
   inputs:
     a: Work laptop
     b: Gaming PC
+  monitors: 2  # 1: a single monitor, on HDMI 1
 
 logger:
 
@@ -22,7 +23,7 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
-# Monitors (which ports, and their input values) are set at runtime: Home Assistant > device > Configuration.
+# Each monitor's input values are set at runtime: Home Assistant > device > Configuration.
 
 # Anything else the board should do goes here, e.g. hook onto the core select:
 # select:

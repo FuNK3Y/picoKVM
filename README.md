@@ -176,11 +176,9 @@ The board can run [ESPHome](https://esphome.io) instead of this firmware, for a 
 
 Samsung and generic HTTP devices are not covered; drive them from Home Assistant if you need them.
 
-Monitors are configured at runtime, from Home Assistant (device page, Configuration) or the ESPHome web server, no rebuild needed:
-- **HDMI 1 monitor / HDMI 2 monitor:** turn on the ports that have a monitor;
-- **HDMI n input for &lt;computer&gt;:** the VCP 0x60 value that shows that computer on the monitor (decimal: 15 DisplayPort 1, 16 DisplayPort 2, 17 HDMI 1, 18 HDMI 2).
+Each monitor's **HDMI n input for &lt;computer&gt;** is set at runtime, from Home Assistant (device page, Configuration) or the ESPHome web server, no rebuild needed: the VCP 0x60 value that shows that computer on the monitor (decimal: 15 DisplayPort 1, 16 DisplayPort 2, 17 HDMI 1, 18 HDMI 2).
 
-Your own config includes the package and names the computers. Names are build-time, because Home Assistant caches a select's options:
+Your own config includes the package, names the computers and sets the number of monitors (1: HDMI 1 only, 2: both). Both are build-time: Home Assistant caches a select's options, and the HDMI 2 settings only exist with 2 monitors:
 
 ```yaml
 packages:
@@ -190,6 +188,7 @@ substitutions:
   inputs:
     a: Work laptop
     b: Gaming PC
+  monitors: 2
 ```
 
 Add anything else the board should do in the same file; `!extend kvm_input` hooks onto the core select. [esphome/example.yaml](esphome/example.yaml) is a complete starting point. Flash it the first time over the AUX USB-C with `esphome run example.yaml`. It builds with ESPHome 2026.9.1 but has not been run on a board yet.
