@@ -169,9 +169,28 @@ I did not try it, but creating a device of type `GenericDevice` with [this paylo
 ```
 
 ### ESPHome (picoKVM board)
-The board can run [ESPHome](https://esphome.io) instead of this firmware, for a native Home Assistant integration. [esphome/picokvm.yaml](esphome/picokvm.yaml) is a complete configuration using stock components only. Its `Input` select moves the USB peripherals, power-cycling the peripheral port as the firmware does, and switches both monitors over DDC/CI: an `i2c_device` per HDMI port and a few-line lambda that sends VCP 0x60. The button cycles the inputs, the LEDs show the active input, and VBUS/fault are binary sensors. Samsung and generic HTTP devices are not covered; drive them from Home Assistant if you need them.
+The board can run [ESPHome](https://esphome.io) instead of this firmware, for a native Home Assistant integration. [esphome/picokvm.yaml](esphome/picokvm.yaml) is the board's core logic as an ESPHome package, built from stock components only:
+- the `Input` select moves the USB peripherals, power-cycling the peripheral port as the firmware does, and switches both monitors over DDC/CI (an `i2c_device` per HDMI port and a few-line lambda that sends VCP 0x60);
+- the button cycles the inputs, and the LEDs show the active input;
+- VBUS and peripheral fault are binary sensors.
 
-Set each monitor's input values in the `substitutions` at the top (`hdmi1_input_a`, ...), add your Wi-Fi to `secrets.yaml`, then flash the first time over the AUX USB-C with `esphome run esphome/picokvm.yaml`. It builds with ESPHome 2026.9.1 but has not been run on a board yet.
+Samsung and generic HTTP devices are not covered; drive them from Home Assistant if you need them.
+
+Your own config includes the package and overrides only what differs. Nested substitutions merge, so this keeps every other default:
+
+```yaml
+packages:
+  picokvm: github://FuNK3Y/picoKVM/esphome/picokvm.yaml@main
+
+substitutions:
+  inputs:
+    a: Work laptop
+    b: Gaming PC
+  hdmi2:
+    b: "0x12"  # VCP 0x60 value that shows computer B on the monitor of HDMI 2
+```
+
+Add anything else the board should do in the same file; `!extend kvm_input` hooks onto the core select. [esphome/example.yaml](esphome/example.yaml) is a complete starting point. Flash it the first time over the AUX USB-C with `esphome run example.yaml`. It builds with ESPHome 2026.9.1 but has not been run on a board yet.
 
 ## How to use
 Here is how to connect everything together:
