@@ -59,6 +59,7 @@ Sources:
 | `hw/make_fab.py` | JLCPCB `bom.csv` / `cpl.csv` (CPL expressed in JLC's own footprint frame) |
 | `hw/panel.py` | JLC assembly panel: rails, mouse bites, fiducials, tooling holes |
 | `hw/thermal_report.py` | proves every single-spoke GND pad reaches the In1 plane |
+| `hw/checks.py` | manufacturing checks beyond DRC, tuned to JLCDFM: vias near pads, SMD near through-hole pads, tracks near mask openings, USB 2 skew (`./build.sh checks`; part of every build) |
 | `hw/review.py` | generates `schematic_review.html` |
 | `hw/jlcref.py` | fetches JLC's footprints into `hw/lib/jlcref/` (used by `make_fab.py`) |
 | `hw/lib/` | LCSC/EasyEDA imports; only the 3D models the board uses are committed (`./build.sh parts` re-fetches the rest, incl. STEP) |

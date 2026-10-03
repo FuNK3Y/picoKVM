@@ -8,7 +8,7 @@ LCSC := C544517 C7501849 C7501850 C138388 C138714 C165948 C318884 C7429571 C5526
 GERBER_LAYERS := F.Cu,In1.Cu,In2.Cu,B.Cu,F.Paste,B.Paste,F.Silkscreen,B.Silkscreen,F.Mask,B.Mask,Edge.Cuts
 PCB := out/kvm_board.kicad_pcb
 
-.PHONY: pcb outputs silk drc render fab impedance review parts jlcref clean
+.PHONY: pcb outputs silk drc checks render fab impedance review parts jlcref clean
 
 pcb:
 	mkdir -p out/img out/jlcpcb/gerbers
@@ -17,7 +17,7 @@ pcb:
 	cd out && python3 ../hw/make_pcb.py 2>&1 | grep -v -i warning
 
 # the targets below work on whatever $(PCB) currently holds (routed or not)
-outputs: silk fab render drc impedance review
+outputs: silk fab render drc checks impedance review
 
 review:
 	python3 hw/review.py
@@ -55,6 +55,10 @@ fab:
 
 parts:
 	cd hw/lib && easyeda2kicad --full --lcsc_id $(LCSC) --output /work/hw/lib/lcsc --project-relative --overwrite
+
+# manufacturing checks beyond DRC (hw/checks.py); fails the build on a finding
+checks:
+	timeout -k 10 600 python3 -u hw/checks.py $(PCB)
 
 # JLC's own footprints for every BOM part (for CPL alignment in make_fab.py)
 jlcref:
