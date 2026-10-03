@@ -1,14 +1,30 @@
 # picoKVM board (hardware/README.md) running ESPHome instead of the MicroPython firmware.
-# The picokvm select switches USB and the DDC/CI monitors; everything else is stock ESPHome.
-# Flash over the AUX USB-C:  esphome run picokvm.yaml
+# Stock components only: the "Input" select moves the USB peripherals and switches both monitors over DDC/CI.
+# Flash the first time over the AUX USB-C:  esphome run picokvm.yaml
 
 substitutions:
   name: picokvm
   input_a: USB A
   input_b: USB B
+  # VCP 0x60 (input source) value of each monitor's input wired to computer A / B:
+  # 0x0F DisplayPort 1, 0x10 DisplayPort 2, 0x11 HDMI 1, 0x12 HDMI 2. Some monitors use their own values:
+  # read VCP 0x60 with a DDC tool (e.g. `ddcutil getvcp 60` on Linux) while each input is active
+  hdmi1_input_a: "0x0F"
+  hdmi1_input_b: "0x11"
+  hdmi2_input_a: "0x0F"
+  hdmi2_input_b: "0x11"
 
 esphome:
   name: ${name}
+  on_boot:
+    priority: -100  # After the select has restored its value
+    then:
+      - lambda: |-
+          auto restored = id(kvm_input).active_index();
+          id(usb_index) = restored.has_value() ? *restored : 0;
+          id(usb_select).set_state(id(usb_index) == 1);
+      - output.turn_on: usb_enable  # The data switches are off until enabled
+      - output.turn_on: peripheral_power  # The peripheral port is unpowered at reset
 
 esp32:
   variant: esp32s3
@@ -18,11 +34,6 @@ esp32:
 
 psram:
   mode: quad
-
-external_components:
-  - source: github://FuNK3Y/picoKVM
-    components: [picokvm]
-  # Working copy instead: - source: { type: local, path: components }
 
 logger:
 
@@ -35,6 +46,24 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
+globals:
+  - id: usb_index  # Input the USB peripherals are on: 0 = A, 1 = B
+    type: int
+    initial_value: "0"
+
+output:
+  - platform: gpio
+    id: usb_select  # USB_SEL: off = USB A, on = USB B (data and peripheral power)
+    pin: GPIO8
+  - platform: gpio
+    id: usb_enable  # USB_OE_N, active low
+    pin:
+      number: GPIO9
+      inverted: true
+  - platform: gpio
+    id: peripheral_power  # PERIPH_EN
+    pin: GPIO10
+
 # HDMI 1 and HDMI 2 DDC lines. DDC/CI allows up to 100 kHz; 50 kHz leaves margin for long cables
 i2c:
   - id: hdmi1
@@ -46,18 +75,75 @@ i2c:
     scl: GPIO5
     frequency: 50kHz
 
+# The monitors' DDC/CI address. The monitor must accept DDC/CI on an inactive input (README.md, DDC/CI)
+i2c_device:
+  - id: hdmi1_monitor
+    i2c_id: hdmi1
+    address: 0x37
+  - id: hdmi2_monitor
+    i2c_id: hdmi2
+    address: 0x37
+
+script:
+  - id: ddc_set_vcp  # DDC/CI (VESA MCCS) Set VCP Feature
+    mode: parallel
+    parameters:
+      monitor: int  # 1 = HDMI 1, 2 = HDMI 2
+      code: int
+      value: int
+    then:
+      - lambda: |-
+          // Source 0x51, length, opcode, VCP code, value; the checksum also covers the write address 0x6E
+          uint8_t msg[7] = {0x51, 0x84, 0x03, uint8_t(code), uint8_t(value >> 8), uint8_t(value), 0x6E};
+          for (int i = 0; i < 6; i++)
+            msg[6] ^= msg[i];
+          auto *dev = monitor == 1 ? id(hdmi1_monitor) : id(hdmi2_monitor);
+          if (dev->write(msg, sizeof(msg)) != i2c::ERROR_OK)
+            ESP_LOGW("picokvm", "DDC/CI: no answer on HDMI %d (no monitor, DDC/CI disabled, or monitor off)", monitor);
+
+  - id: switch_input
+    mode: queued
+    parameters:
+      index: int  # 0 = A, 1 = B
+    then:
+      # A monitor in standby can be woken first (VCP 0xD6 = 1), given time, then switched:
+      # - script.execute: { id: ddc_set_vcp, monitor: 1, code: 0xD6, value: 1 }
+      # - delay: 2s
+      - script.execute:
+          id: ddc_set_vcp
+          monitor: 1
+          code: 0x60
+          value: !lambda "return index == 0 ? ${hdmi1_input_a} : ${hdmi1_input_b};"
+      - delay: 50ms  # DDC/CI asks for 50 ms between messages
+      - script.execute:
+          id: ddc_set_vcp
+          monitor: 2
+          code: 0x60
+          value: !lambda "return index == 0 ? ${hdmi2_input_a} : ${hdmi2_input_b};"
+      - if:
+          condition:
+            lambda: return index != id(usb_index);
+          then:
+            # Power and data move together, so the peripheral never sees a half-switched port
+            # and re-enumerates on the new computer
+            - output.turn_off: peripheral_power
+            - lambda: |-
+                id(usb_index) = index;
+                id(usb_select).set_state(index == 1);
+            - delay: 200ms
+            - output.turn_on: peripheral_power
+
 select:
-  - platform: picokvm
+  - platform: template
     id: kvm_input
     name: Input
     options: ["${input_a}", "${input_b}"]
-    # The monitor must accept DDC/CI on an inactive input (README.md, DDC/CI)
-    monitors:
-      - i2c_id: hdmi1
-        inputs: [0x0F, 0x11]  # VCP 0x60 for USB A, USB B: here DisplayPort 1, HDMI 1
-      - i2c_id: hdmi2
-        inputs: [0x0F, 0x11]
-        # power_on: true      # VCP 0xD6 = on first, then the input after power_on_delay
+    optimistic: true
+    restore_value: true
+    set_action:
+      - script.execute:
+          id: switch_input
+          index: !lambda 'return x == "${input_a}" ? 0 : 1;'
     on_value:
       - light.turn_on:
           id: board_led
