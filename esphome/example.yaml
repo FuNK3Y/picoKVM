@@ -10,8 +10,6 @@ substitutions:
   inputs:
     a: Work laptop
     b: Gaming PC
-  hdmi2:
-    b: "0x12"  # This monitor has computer B on its HDMI 2 (hdmi2.a keeps the package's 0x0F)
 
 logger:
 
@@ -23,6 +21,8 @@ ota:
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+
+# Monitors (which ports, and their input values) are set at runtime: Home Assistant > device > Configuration.
 
 # Anything else the board should do goes here, e.g. hook onto the core select:
 # select:

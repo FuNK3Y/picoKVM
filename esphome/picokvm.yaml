@@ -1,22 +1,17 @@
 # picoKVM board (hardware/README.md) running ESPHome: core package with the board's logic, stock components only.
-# The "Input" select moves the USB peripherals and switches both monitors over DDC/CI; the button cycles it and
-# the LEDs show it. Include it from your own config (see example.yaml) and override the substitutions there:
-# nested values merge, so setting hdmi2.b alone keeps every other default.
+# The "Input" select moves the USB peripherals and switches the monitors over DDC/CI; the button cycles it and
+# the LEDs show it. Include it from your own config (see example.yaml).
+# Monitor settings are configuration entities, changed at runtime from Home Assistant or the web server:
+#   "HDMI n monitor"            on when a monitor is plugged into that port and should follow the input
+#   "HDMI n input for <name>"   value of VCP 0x60 (input source) that shows that computer on the monitor:
+#                               15 DisplayPort 1, 16 DisplayPort 2, 17 HDMI 1, 18 HDMI 2. Some monitors use their own
+#                               values: read VCP 0x60 with a DDC tool (`ddcutil getvcp 60` on Linux) on each input
 
 substitutions:
   name: picokvm
-  inputs:  # Select option names
+  inputs:  # Computer names: the select's options, fixed at build time (Home Assistant caches them)
     a: USB A
     b: USB B
-  # Value of VCP 0x60 (input source) that shows computer A / B on the monitor of each HDMI port:
-  # 0x0F DisplayPort 1, 0x10 DisplayPort 2, 0x11 HDMI 1, 0x12 HDMI 2. Some monitors use their own values:
-  # read VCP 0x60 with a DDC tool (e.g. `ddcutil getvcp 60` on Linux) while each input is active
-  hdmi1:
-    a: "0x0F"
-    b: "0x11"
-  hdmi2:
-    a: "0x0F"
-    b: "0x11"
 
 esphome:
   name: ${name}
@@ -99,20 +94,28 @@ script:
     parameters:
       index: int  # 0 = A, 1 = B
     then:
-      # A monitor in standby can be woken first (VCP 0xD6 = 1), given time, then switched:
+      # Each monitor is on its own bus, so they are switched together. A monitor in standby can be woken first
+      # (VCP 0xD6 = 1), given time, then switched:
       # - script.execute: { id: ddc_set_vcp, monitor: 1, code: 0xD6, value: 1 }
       # - delay: 2s
-      - script.execute:
-          id: ddc_set_vcp
-          monitor: 1
-          code: 0x60
-          value: !lambda "return index == 0 ? ${hdmi1.a} : ${hdmi1.b};"
-      - delay: 50ms  # DDC/CI asks for 50 ms between messages
-      - script.execute:
-          id: ddc_set_vcp
-          monitor: 2
-          code: 0x60
-          value: !lambda "return index == 0 ? ${hdmi2.a} : ${hdmi2.b};"
+      - if:
+          condition:
+            switch.is_on: hdmi1_enabled
+          then:
+            - script.execute:
+                id: ddc_set_vcp
+                monitor: 1
+                code: 0x60
+                value: !lambda "return index == 0 ? id(hdmi1_input_a).state : id(hdmi1_input_b).state;"
+      - if:
+          condition:
+            switch.is_on: hdmi2_enabled
+          then:
+            - script.execute:
+                id: ddc_set_vcp
+                monitor: 2
+                code: 0x60
+                value: !lambda "return index == 0 ? id(hdmi2_input_a).state : id(hdmi2_input_b).state;"
       - if:
           condition:
             lambda: return index != id(usb_index);
@@ -148,6 +151,52 @@ select:
       - light.turn_on:
           id: key_led
           <<: *input_color
+
+switch:
+  - platform: template
+    id: hdmi1_enabled
+    name: HDMI 1 monitor
+    icon: mdi:monitor
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+  - platform: template
+    id: hdmi2_enabled
+    name: HDMI 2 monitor
+    icon: mdi:monitor
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+number:
+  - platform: template
+    id: hdmi1_input_a
+    name: HDMI 1 input for ${inputs.a}
+    <<: &vcp_input
+      icon: mdi:video-input-hdmi
+      entity_category: config
+      mode: box
+      min_value: 0
+      max_value: 255
+      step: 1
+      optimistic: true
+      restore_value: true
+    initial_value: 15  # DisplayPort 1
+  - platform: template
+    id: hdmi1_input_b
+    name: HDMI 1 input for ${inputs.b}
+    <<: *vcp_input
+    initial_value: 17  # HDMI 1
+  - platform: template
+    id: hdmi2_input_a
+    name: HDMI 2 input for ${inputs.a}
+    <<: *vcp_input
+    initial_value: 15
+  - platform: template
+    id: hdmi2_input_b
+    name: HDMI 2 input for ${inputs.b}
+    <<: *vcp_input
+    initial_value: 17
 
 binary_sensor:
   - platform: gpio
