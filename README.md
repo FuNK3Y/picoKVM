@@ -170,7 +170,7 @@ I did not try it, but creating a device of type `GenericDevice` with [this paylo
 
 ### ESPHome (picoKVM board)
 The board can run [ESPHome](https://esphome.io) instead of this firmware, for a native Home Assistant integration. [esphome/picokvm.yaml](esphome/picokvm.yaml) is the board's core logic as an ESPHome package, built from stock components only:
-- the `Input` select moves the USB peripherals, power-cycling the peripheral port as the firmware does, and switches both monitors over DDC/CI (an `i2c_device` per HDMI port and a few-line lambda that sends VCP 0x60);
+- the `Input` select moves the USB peripherals, power-cycling the peripheral port as the firmware does, and switches the monitors over DDC/CI (an `i2c_device` per HDMI port and a few-line lambda that sends VCP 0x60);
 - the button cycles the inputs, and the LEDs show the active input;
 - VBUS and peripheral fault are binary sensors.
 
