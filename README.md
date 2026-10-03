@@ -168,6 +168,28 @@ I did not try it, but creating a device of type `GenericDevice` with [this paylo
 }
 ```
 
+### ESPHome (picoKVM board)
+The board can run [ESPHome](https://esphome.io) instead of this firmware, for a native Home Assistant integration. The `picokvm` external component ([esphome/components/picokvm](esphome/components/picokvm)) covers the USB switch and the DDC/CI monitors only. It exposes them as one `select` entity: choosing an option moves the USB peripherals, power-cycling the peripheral port as the firmware does, and sends VCP 0x60 to every configured monitor. Button, LEDs and VBUS/fault sensors are stock ESPHome components, wired up in [esphome/picokvm.yaml](esphome/picokvm.yaml). Samsung and generic HTTP devices are not part of the component; drive them from Home Assistant if you need them.
+
+```yaml
+external_components:
+  - source: github://FuNK3Y/picoKVM
+    components: [picokvm]
+
+select:
+  - platform: picokvm
+    name: Input
+    options: ["PC1", "PC2"]       # Input A, input B
+    monitors:
+      - i2c_id: hdmi1             # i2c bus on GPIO1/GPIO2
+        inputs: [0x0F, 0x11]      # VCP 0x60 value for input A, input B
+      - i2c_id: hdmi2             # i2c bus on GPIO4/GPIO5
+        inputs: [0x0F, 0x11]
+        power_on: true            # Optional: VCP 0xD6 = on first, then the input after power_on_delay (2s)
+```
+
+The pins default to the board's (USB select GPIO8, USB enable GPIO9 active low, peripheral power GPIO10), and the selected input is restored after a reboot (`restore_value`). Builds with ESPHome 2026.9.1 (not yet run on a board); flash the first time over the AUX USB-C with `esphome run esphome/picokvm.yaml`.
+
 ## How to use
 Here is how to connect everything together:
 - Connect computers directly to the monitors
