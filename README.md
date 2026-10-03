@@ -36,7 +36,16 @@ The original build, still supported:
 
 They need to be wired together (Ground, Signal over GPIO (`G1` by default))
 
-You can add a physical button, I went with [this one](https://shop.m5stack.com/products/mechanical-key-button-unit). Pick a GPIO port for the LED and the button and update the config accordingly. Use `"usb_gpio_pin": "G1"`, `"button_gpio_pin": "BUTTON"`, `"led_gpio_pin": "LED_RGB"` and leave out the board-only settings below.
+You can add a physical button, I went with [this one](https://shop.m5stack.com/products/mechanical-key-button-unit). Pick a GPIO port for the LED and the button and update the config accordingly. The defaults target the picoKVM board, so set the Atom's pins and disable the board-only settings in `config.json`:
+```json
+"usb_gpio_pin": "G1",
+"button_gpio_pin": "BUTTON",
+"led_gpio_pin": "LED_RGB",
+"usb_enable_gpio_pin": null,
+"peripheral_power_gpio_pin": null,
+"peripheral_fault_gpio_pin": null,
+"vbus_sense_gpio_pins": null
+```
 
 ## Software setup
 For the picoKVM board, flash the MicroPython `ESP32_GENERIC_S3` firmware, **SPIRAM** variant (the module has 2 MB of PSRAM), through the AUX / FLASH USB-C port: hold BOOT, press RESET, release BOOT, then use `esptool`. That port is also the MicroPython REPL afterwards.
@@ -48,6 +57,8 @@ Copy `config.example.json` to `config.json` and adjust it with your settings. Yo
 `config.json` is deliberately not tracked by git: the device rewrites it at runtime to persist the monitor pairing token, so it ends up holding both that token and your Wi-Fi password.
 
 ### Settings
+
+Defaults are the picoKVM board's pins (as in `config.example.json`).
 
 | key | what |
 |---|---|
@@ -77,7 +88,9 @@ Each HDMI port of the board is a `DdcMonitor` device: `sda_gpio_pin` / `scl_gpio
 }
 ```
 
-Not every monitor implements DDC/CI (the Samsung G80SD does not); use one of the network APIs below for those.
+**The monitor must accept DDC/CI commands on an input that is not the active one.** The KVM's HDMI cable is only a control link: the monitor is showing a computer on another input when the command arrives, so DDC/CI has to stay enabled and responsive on inactive inputs. Most monitors with a DDC/CI setting do this, but check yours (e.g. with a laptop plugged into a spare input and `ddcutil`/ControlMyMonitor).
+
+This has been successfully tested so far on **AOC, Samsung, Dell, Acer and Lenovo** monitors. Not every monitor implements DDC/CI (the Samsung G80SD does not); use one of the network APIs below for those.
 
 ### Samsung Remote API
 Using your remote, find a repeatable pattern of key presses that will allow you to select the correct input. Then, using the [key code reference](https://github.com/ollo69/ha-samsungtv-smart/blob/master/docs/Key_codes.md), adjust `config.json` accordingly.
