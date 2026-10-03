@@ -1,0 +1,25 @@
+Board 112 x 75 mm, origin top-left (rear-left corner), y toward the front.
+ESP32 antenna flush with the right edge (y 31..49); keep metal and conductive filament >= 5 mm away from it.
+M3 holes at (4,4) (108,4) (4,71) (108,71); keep 8 mm around them clear.
+Connectors stick out past the edge by up to 1.5 mm (2 mm wall - 0.5 mm);
+less where a pad would get too close to the edge.
+
+ref  part                         edge    centre along edge  protrusion
+J1   HC-USB3.0-L1845-BF           rear             17.00 mm     1.50 mm
+J2   HC-USB3.0-L1845-BF           rear             35.00 mm     1.50 mm
+J3   HC-USB3.0-L168-WP            front            26.00 mm     1.50 mm
+J5   HDMI-001                     front            49.00 mm     1.50 mm
+J6   HDMI-001                     front            75.00 mm     1.50 mm
+J4   USB_C_Receptacle_USB2.0_16P  rear             95.00 mm     1.50 mm
+J8   GROVE_BTN                    left             37.50 mm     0.38 mm
+
+Side-emitting RGB status LED (SK6812SIDE-A; lens 4.0 x 2.0 mm, light exits
+the front edge; ~2 mm hole or light pipe in the wall, centre 1.0 mm above
+the board surface, lens face 0.2 mm inside the edge):
+  D3 at x = 95.00 mm
+
+Buttons (TS-1187A-C-F-B, 5.1 x 5.1 mm, top of actuator 3.0 mm above the board;
+press them through lid flexures):
+  SW1 RESET  centre (52.00, 22.00) mm
+  SW2 BOOT   centre (60.00, 22.00) mm
+  SW3 PC SW  centre (68.00, 22.00) mm
