@@ -282,7 +282,8 @@ these pins).
   The module is the **N8R2** (8 MB flash, 2 MB quad PSRAM).  GPIO35–37 are
   free only because its PSRAM is quad SPI — don't substitute an octal-PSRAM
   module (N8R8, N16R8…), which uses those pins internally.  In MicroPython
-  use the ESP32_GENERIC_S3 **SPIRAM** firmware build to get the 2 MB heap.  GPIO39–42 are also the JTAG pins (usable as
+  use the plain ESP32_GENERIC_S3 build: it detects the quad PSRAM at boot (the
+  `SPIRAM_OCT` build is for octal PSRAM and won't start it).  GPIO39–42 are also the JTAG pins (usable as
   normal GPIO; JTAG is over USB on the S3).  The 5V pin is the board's
   internal rail (ideal-diode OR of the USB inputs) — keep loads small.
 - **J7 — UART header (assembled, C32713270):** GND, TX, RX, 3V3.

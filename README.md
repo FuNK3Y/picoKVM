@@ -48,7 +48,7 @@ You can add a physical button, I went with [this one](https://shop.m5stack.com/p
 ```
 
 ## Software setup
-For the picoKVM board, flash the MicroPython `ESP32_GENERIC_S3` firmware, **SPIRAM** variant (the module has 2 MB of PSRAM), through the AUX / FLASH USB-C port: hold BOOT, press RESET, release BOOT, then use `esptool`. That port is also the MicroPython REPL afterwards.
+For the picoKVM board, flash the plain MicroPython `ESP32_GENERIC_S3` firmware through the AUX / FLASH USB-C port: hold BOOT, press RESET, release BOOT, then `esptool.py write_flash 0 ESP32_GENERIC_S3-<date>-<version>.bin` (offset 0 on the S3). That port is also the MicroPython REPL afterwards. The plain build detects the module's 2 MB quad PSRAM at boot; don't use the `SPIRAM_OCT` variant, which is for octal PSRAM.
 
 Clone locally this repo and copy the files of this repository (not the `hardware/` folder) to your board ([Thonny](https://thonny.org/) works great for that). On top you need to install the additional package `aiohttp` (this can be done with Thonny as well).
 
