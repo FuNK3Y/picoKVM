@@ -1,0 +1,236 @@
+# picoKVM board (hardware/README.md) running ESPHome: core package with the board's logic, stock components only.
+# The "Input" select moves the USB peripherals and switches the monitors over DDC/CI; the button cycles it and
+# the LEDs show it. Include it from your own config (see example.yaml).
+# Each monitor's "HDMI n input for <computer>" is a configuration entity, changed at runtime from Home Assistant or
+# the web server: the value of VCP 0x60 (input source) that shows that computer on the monitor. 15 DisplayPort 1,
+# 16 DisplayPort 2, 17 HDMI 1, 18 HDMI 2; some monitors use their own values: read VCP 0x60 with a DDC tool
+# (`ddcutil getvcp 60` on Linux) on each input.
+
+substitutions:
+  name: picokvm
+  inputs:  # Computer names: the select's options, fixed at build time (Home Assistant caches them)
+    a: USB A
+    b: USB B
+  monitors: 2  # Monitors to switch, on HDMI 1 then HDMI 2: 1 or 2
+
+  vcp_input: &vcp_input  # Common settings of the "HDMI n input for <computer>" numbers
+    icon: mdi:video-input-hdmi
+    entity_category: config
+    mode: box
+    min_value: 0
+    max_value: 255
+    step: 1
+    optimistic: true
+    restore_value: true
+
+  # What only exists with a second monitor. Plain ESPHome config, kept here as a value so that `packages:` below
+  # merges it in when monitors == 2 and leaves it out otherwise
+  hdmi2:
+    number:
+      - platform: template
+        id: hdmi2_input_a
+        name: HDMI 2 input for ${inputs.a}
+        <<: *vcp_input
+        initial_value: 15  # DisplayPort 1
+      - platform: template
+        id: hdmi2_input_b
+        name: HDMI 2 input for ${inputs.b}
+        <<: *vcp_input
+        initial_value: 17  # HDMI 1
+    select:
+      - id: !extend kvm_input
+        set_action:  # Appended to the core set_action: both monitors switch together, each on its own bus
+          - script.execute:
+              id: ddc_set_vcp
+              monitor: 2
+              code: 0x60
+              value: !lambda 'return x == "${inputs.a}" ? id(hdmi2_input_a).state : id(hdmi2_input_b).state;'
+
+packages:
+  hdmi2: ${hdmi2 if monitors == 2 else {}}
+
+esphome:
+  name: ${name}
+  on_boot:
+    priority: -100  # After the select has restored its value
+    then:
+      - lambda: |-
+          auto restored = id(kvm_input).active_index();
+          id(usb_index) = restored.has_value() ? *restored : 0;
+          id(usb_select).set_state(id(usb_index) == 1);
+      - output.turn_on: usb_enable  # The data switches are off until enabled
+      - output.turn_on: peripheral_power  # The peripheral port is unpowered at reset
+
+esp32:
+  variant: esp32s3
+  flash_size: 8MB
+  framework:
+    type: esp-idf
+
+psram:
+  mode: quad
+
+globals:
+  - id: usb_index  # Input the USB peripherals are on: 0 = A, 1 = B
+    type: int
+    initial_value: "0"
+
+output:
+  - platform: gpio
+    id: usb_select  # USB_SEL: off = USB A, on = USB B (data and peripheral power)
+    pin: GPIO8
+  - platform: gpio
+    id: usb_enable  # USB_OE_N, active low
+    pin:
+      number: GPIO9
+      inverted: true
+  - platform: gpio
+    id: peripheral_power  # PERIPH_EN
+    pin: GPIO10
+
+# HDMI 1 and HDMI 2 DDC lines, both defined whatever the number of monitors. DDC/CI allows up to 100 kHz;
+# 50 kHz leaves margin for long cables
+i2c:
+  - id: hdmi1_bus
+    sda: GPIO1
+    scl: GPIO2
+    frequency: 50kHz
+    scan: false
+  - id: hdmi2_bus
+    sda: GPIO4
+    scl: GPIO5
+    frequency: 50kHz
+    scan: false
+
+# The monitors' DDC/CI address. The monitor must accept DDC/CI on an inactive input (README.md, DDC/CI)
+i2c_device:
+  - id: hdmi1_monitor
+    i2c_id: hdmi1_bus
+    address: 0x37
+  - id: hdmi2_monitor
+    i2c_id: hdmi2_bus
+    address: 0x37
+
+script:
+  - id: ddc_set_vcp  # DDC/CI (VESA MCCS) Set VCP Feature
+    mode: parallel
+    parameters:
+      monitor: int  # 1 = HDMI 1, 2 = HDMI 2
+      code: int
+      value: int
+    then:
+      - lambda: |-
+          // Source 0x51, length, opcode, VCP code, value; the checksum also covers the write address 0x6E
+          uint8_t msg[7] = {0x51, 0x84, 0x03, uint8_t(code), uint8_t(value >> 8), uint8_t(value), 0x6E};
+          for (int i = 0; i < 6; i++)
+            msg[6] ^= msg[i];
+          auto *dev = monitor == 1 ? id(hdmi1_monitor) : id(hdmi2_monitor);
+          if (dev->write(msg, sizeof(msg)) != i2c::ERROR_OK)
+            ESP_LOGW("picokvm", "DDC/CI: no answer on HDMI %d (no monitor, DDC/CI disabled, or monitor off)", monitor);
+
+  - id: switch_input
+    mode: queued
+    parameters:
+      index: int  # 0 = A, 1 = B
+    then:
+      # A monitor in standby can be woken first (VCP 0xD6 = 1), given time, then switched:
+      # - script.execute: { id: ddc_set_vcp, monitor: 1, code: 0xD6, value: 1 }
+      # - delay: 2s
+      - script.execute:
+          id: ddc_set_vcp
+          monitor: 1
+          code: 0x60
+          value: !lambda "return index == 0 ? id(hdmi1_input_a).state : id(hdmi1_input_b).state;"
+      - if:
+          condition:
+            lambda: return index != id(usb_index);
+          then:
+            # Power and data move together, so the peripheral never sees a half-switched port
+            # and re-enumerates on the new computer
+            - output.turn_off: peripheral_power
+            - lambda: |-
+                id(usb_index) = index;
+                id(usb_select).set_state(index == 1);
+            - delay: 200ms
+            - output.turn_on: peripheral_power
+
+select:
+  - platform: template
+    id: kvm_input
+    name: Input
+    options: ["${inputs.a}", "${inputs.b}"]
+    optimistic: true
+    restore_value: true
+    set_action:
+      - script.execute:
+          id: switch_input
+          index: !lambda 'return x == "${inputs.a}" ? 0 : 1;'
+    on_value:
+      - light.turn_on:
+          id: board_led
+          <<: &input_color  # Input colors, as in config.py: A #007BFF, B #902A8D
+            red: !lambda "return i == 0 ? 0.0f : 0.565f;"
+            green: !lambda "return i == 0 ? 0.482f : 0.165f;"
+            blue: !lambda "return i == 0 ? 1.0f : 0.553f;"
+            brightness: 20%
+      - light.turn_on:
+          id: key_led
+          <<: *input_color
+
+
+number:
+  - platform: template
+    id: hdmi1_input_a
+    name: HDMI 1 input for ${inputs.a}
+    <<: *vcp_input
+    initial_value: 15  # DisplayPort 1
+  - platform: template
+    id: hdmi1_input_b
+    name: HDMI 1 input for ${inputs.b}
+    <<: *vcp_input
+    initial_value: 17  # HDMI 1
+
+binary_sensor:
+  - platform: gpio
+    id: key
+    name: Key
+    pin:
+      number: GPIO13  # On-board SW3 and the Grove J8 key; 10k pull-up on the board
+      mode: INPUT
+      inverted: true
+    filters:
+      - delayed_on: 20ms
+    on_press:
+      - select.next:
+          id: kvm_input
+          cycle: true
+  - platform: gpio
+    name: USB A powered
+    pin: GPIO11
+    device_class: power
+  - platform: gpio
+    name: USB B powered
+    pin: GPIO12
+    device_class: power
+  - platform: gpio
+    name: Peripheral port fault
+    pin:
+      number: GPIO16
+      inverted: true
+    device_class: problem
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: board_led
+    name: Board LED
+    pin: GPIO14
+    chipset: SK6812
+    channel_colors: GRB
+    num_leds: 1
+  - platform: esp32_rmt_led_strip
+    id: key_led
+    name: Key LED
+    pin: GPIO17
+    chipset: SK6812
+    channel_colors: GRB
+    num_leds: 1

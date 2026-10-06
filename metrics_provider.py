@@ -1,6 +1,8 @@
 import gc
 import network
 import esp32
+from machine import Pin
+from config import Config
 
 
 class MetricsProvider:
@@ -37,6 +39,19 @@ esp_heap_total_bytes{{region="{region}"}} {data[0]}
 esp_heap_free_bytes{{region="{region}"}} {data[1]}
 esp_heap_largest_free_block{{region="{region}"}} {data[2]}
 esp_heap_minimum_free_bytes{{region="{region}"}} {data[3]}
+"""
+        if Config.vbus_sense_gpio_pins:
+            output += """
+# HELP usb_input_powered 1 while the computer on that input powers its USB port
+# TYPE usb_input_powered gauge
+"""
+            for input, pin in Config.vbus_sense_gpio_pins.items():
+                output += f'usb_input_powered{{input="{input}"}} {Pin(pin, Pin.IN).value()}\n'
+        if Config.peripheral_fault_gpio_pin is not None:
+            output += f"""
+# HELP usb_peripheral_fault 1 while the peripheral port is in over-current / over-temperature shutdown
+# TYPE usb_peripheral_fault gauge
+usb_peripheral_fault {1 - Pin(Config.peripheral_fault_gpio_pin, Pin.IN).value()}
 """
         output += f"""
 # HELP esp_mcu_temperature Temperature of the MCU in degree

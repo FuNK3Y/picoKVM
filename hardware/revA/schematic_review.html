@@ -1,0 +1,646 @@
+<!doctype html><html><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>picoKVM schematic review</title><style>
+:root{--bg:#fff;--fg:#1d1d1f;--dim:#6e6e73;--line:#d2d2d7;--head:#f5f5f7;--bad:#c62828;--ok:#2e7d32;--nc:#9e9e9e}
+@media (prefers-color-scheme:dark){:root{--bg:#141416;--fg:#e8e8ea;--dim:#9a9aa0;--line:#3a3a3e;--head:#1f1f23;--bad:#ef5350;--ok:#66bb6a;--nc:#757575}}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,sans-serif;max-width:1100px;margin:0 auto;padding:16px}
+h1{font-size:22px}h2{margin-top:36px;border-bottom:1px solid var(--line);padding-bottom:4px}h3{font-size:15px;margin:18px 0 6px}
+table{border-collapse:collapse;width:100%;margin-bottom:8px}th,td{border:1px solid var(--line);padding:3px 6px;text-align:left;vertical-align:top}
+th{background:var(--head)}td:first-child{white-space:nowrap}.dim{color:var(--dim)}.bad{color:var(--bad)}.ok{color:var(--ok)}
+tr.nc td{color:var(--nc)}nav{position:sticky;top:0;background:var(--bg);padding:6px 0;border-bottom:1px solid var(--line)}
+a{color:inherit}code{font-size:13px}</style></head><body><h1>picoKVM rev A — schematic review</h1>
+<p class=dim>Generated from <code>hw/kvm_board.py</code> via <code>out/kvm_board.json</code> — 95 parts, 75 nets.  ERC: ERC INFO: No errors or warnings found while running ERC.</p>
+<nav><b>Blocks:</b> <a href='#b0'>USB data path (USB 3.0 + USB 2.0 switching)</a> · <a href='#b1'>Peripheral power</a> · <a href='#b2'>System power</a> · <a href='#b3'>HDMI 1 - DDC/CI</a> · <a href='#b4'>HDMI 2 - DDC/CI</a> · <a href='#b5'>Grove button port (M5Stack pinout)</a> · <a href='#b6'>ESP32-S3 controller, buttons, LEDs, headers</a> · <a href='#nets'>Net index</a> · <a href='#checks'>Checks</a></nav>
+<h2 id=b0>USB data path (USB 3.0 + USB 2.0 switching)</h2>
+<p>USB A / USB B Type-B in, peripheral Type-A out.  U2 switches the SuperSpeed pairs, U3 the USB 2.0 pair; both follow USB_SEL.  ESD at every connector.</p>
+<h3>J1 — HC-USB3.0-L1845-BF <span class=dim>(HC-USB3.0-L1845-BF, C7501849)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>VBUS</td><td>VBUS_A</td><td>U4.6 (VIN2), C4.1, U6.1 (VIN), R8.1, C23.1</td></tr>
+<tr><td>2</td><td>D-</td><td>PCA_DN</td><td>U11.5 (D2-), U11.6 (NC), U3.2 (1D-)</td></tr>
+<tr><td>3</td><td>D+</td><td>PCA_DP</td><td>U11.4 (D2+), U11.7 (NC), U3.1 (1D+)</td></tr>
+<tr><td>4</td><td>GND</td><td>GND</td><td><span class=dim>97 connections</span></td></tr>
+<tr><td>5</td><td>SSTX-</td><td>PCA_SSTX_N</td><td>U17.5 (D2-), U17.6 (NC), U2.16 (B1N)</td></tr>
+<tr><td>6</td><td>SSTX+</td><td>PCA_SSTX_P</td><td>U17.4 (D2+), U17.7 (NC), U2.17 (B1P)</td></tr>
+<tr><td>7</td><td>GND_DRAN</td><td>GND</td><td><span class=dim>97 connections</span></td></tr>
+<tr><td>8</td><td>SSRX-</td><td>PCA_SSRX_N</td><td>U17.2 (D1-), U17.9 (NC), U2.18 (B0N)</td></tr>
+<tr><td>9</td><td>SSRX+</td><td>PCA_SSRX_P</td><td>U17.1 (D1+), U17.10 (NC), U2.19 (B0P)</td></tr>
+<tr><td>10</td><td>SH</td><td>GND</td><td><span class=dim>97 connections</span></td></tr>
+<tr><td>11</td><td>SH</td><td>GND</td><td><span class=dim>97 connections</span></td></tr>
+</table>
+<h3>J2 — HC-USB3.0-L1845-BF <span class=dim>(HC-USB3.0-L1845-BF, C7501849)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>VBUS</td><td>VBUS_B</td><td>U4.3 (VIN1), C5.1, U7.1 (VIN), R10.1, C24.1</td></tr>
+<tr><td>2</td><td>D-</td><td>PCB_DN</td><td>U12.2 (D1-), U12.9 (NC), U3.4 (2D-)</td></tr>
+<tr><td>3</td><td>D+</td><td>PCB_DP</td><td>U12.1 (D1+), U12.10 (NC), U3.3 (2D+)</td></tr>
+<tr><td>4</td><td>GND</td><td>GND</td><td><span class=dim>97 connections</span></td></tr>
+<tr><td>5</td><td>SSTX-</td><td>PCB_SSTX_N</td><td>U18.5 (D2-), U18.6 (NC), U2.12 (C1N)</td></tr>
+<tr><td>6</td><td>SSTX+</td><td>PCB_SSTX_P</td><td>U18.4 (D2+), U18.7 (NC), U2.13 (C1P)</td></tr>
+<tr><td>7</td><td>GND_DRAN</td><td>GND</td><td><span class=dim>97 connections</span></td></tr>
+<tr><td>8</td><td>SSRX-</td><td>PCB_SSRX_N</td><td>U18.2 (D1-), U18.9 (NC), U2.14 (C0N)</td></tr>
+<tr><td>9</td><td>SSRX+</td><td>PCB_SSRX_P</td><td>U18.1 (D1+), U18.10 (NC), U2.15 (C0P)</td></tr>
+<tr><td>10</td><td>SH</td><td>GND</td><td><span class=dim>97 connections</span></td></tr>
+<tr><td>11</td><td>SH</td><td>GND</td><td><span class=dim>97 connections</span></td></tr>
+</table>
+<h3>J3 — HC-USB3.0-L168-WP <span class=dim>(HC-USB3.0-L168-WP, C7501850)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>VBUS</td><td>VBUS_PERIPH</td><td>U20.6 (OUT), C7.1, C8.1, C9.1</td></tr>
+<tr><td>2</td><td>D-</td><td>PER_DN</td><td>U13.2 (D1-), U13.9 (NC), U3.7 (D-)</td></tr>
+<tr><td>3</td><td>D+</td><td>PER_DP</td><td>U13.1 (D1+), U13.10 (NC), U3.8 (D+)</td></tr>
+<tr><td>4</td><td>GND</td><td>GND</td><td><span class=dim>98 connections</span></td></tr>
+<tr><td>5</td><td>SSRX-</td><td>PER_SSRX_N</td><td>U19.5 (D2-), U19.6 (NC), U2.8 (A1n)</td></tr>
+<tr><td>6</td><td>SSRX+</td><td>PER_SSRX_P</td><td>U19.4 (D2+), U19.7 (NC), U2.7 (A1p)</td></tr>
+<tr><td>7</td><td>GND_DRAN</td><td>GND</td><td><span class=dim>98 connections</span></td></tr>
+<tr><td>8</td><td>SSTX-</td><td>PER_SSTX_N</td><td>U19.2 (D1-), U19.9 (NC), U2.4 (A0n)</td></tr>
+<tr><td>9</td><td>SSTX+</td><td>PER_SSTX_P</td><td>U19.1 (D1+), U19.10 (NC), U2.3 (A0p)</td></tr>
+<tr><td>10</td><td>SH</td><td>GND</td><td><span class=dim>98 connections</span></td></tr>
+</table>
+<h3>U17 — TPD4E05U06DQAR_C138714 <span class=dim>(TPD4E05U06DQAR_C138714, C138714)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>D1+</td><td>PCA_SSRX_P</td><td>J1.9 (SSRX+), U2.19 (B0P)</td></tr>
+<tr><td>2</td><td>D1-</td><td>PCA_SSRX_N</td><td>J1.8 (SSRX-), U2.18 (B0N)</td></tr>
+<tr><td>3</td><td>GND</td><td>GND</td><td><span class=dim>99 connections</span></td></tr>
+<tr><td>4</td><td>D2+</td><td>PCA_SSTX_P</td><td>J1.6 (SSTX+), U2.17 (B1P)</td></tr>
+<tr><td>5</td><td>D2-</td><td>PCA_SSTX_N</td><td>J1.5 (SSTX-), U2.16 (B1N)</td></tr>
+<tr><td>6</td><td>NC</td><td>PCA_SSTX_N</td><td>J1.5 (SSTX-), U2.16 (B1N)</td></tr>
+<tr><td>7</td><td>NC</td><td>PCA_SSTX_P</td><td>J1.6 (SSTX+), U2.17 (B1P)</td></tr>
+<tr><td>8</td><td>GND</td><td>GND</td><td><span class=dim>99 connections</span></td></tr>
+<tr><td>9</td><td>NC</td><td>PCA_SSRX_N</td><td>J1.8 (SSRX-), U2.18 (B0N)</td></tr>
+<tr><td>10</td><td>NC</td><td>PCA_SSRX_P</td><td>J1.9 (SSRX+), U2.19 (B0P)</td></tr>
+</table>
+<h3>U18 — TPD4E05U06DQAR_C138714 <span class=dim>(TPD4E05U06DQAR_C138714, C138714)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>D1+</td><td>PCB_SSRX_P</td><td>J2.9 (SSRX+), U2.15 (C0P)</td></tr>
+<tr><td>2</td><td>D1-</td><td>PCB_SSRX_N</td><td>J2.8 (SSRX-), U2.14 (C0N)</td></tr>
+<tr><td>3</td><td>GND</td><td>GND</td><td><span class=dim>99 connections</span></td></tr>
+<tr><td>4</td><td>D2+</td><td>PCB_SSTX_P</td><td>J2.6 (SSTX+), U2.13 (C1P)</td></tr>
+<tr><td>5</td><td>D2-</td><td>PCB_SSTX_N</td><td>J2.5 (SSTX-), U2.12 (C1N)</td></tr>
+<tr><td>6</td><td>NC</td><td>PCB_SSTX_N</td><td>J2.5 (SSTX-), U2.12 (C1N)</td></tr>
+<tr><td>7</td><td>NC</td><td>PCB_SSTX_P</td><td>J2.6 (SSTX+), U2.13 (C1P)</td></tr>
+<tr><td>8</td><td>GND</td><td>GND</td><td><span class=dim>99 connections</span></td></tr>
+<tr><td>9</td><td>NC</td><td>PCB_SSRX_N</td><td>J2.8 (SSRX-), U2.14 (C0N)</td></tr>
+<tr><td>10</td><td>NC</td><td>PCB_SSRX_P</td><td>J2.9 (SSRX+), U2.15 (C0P)</td></tr>
+</table>
+<h3>U19 — TPD4E05U06DQAR_C138714 <span class=dim>(TPD4E05U06DQAR_C138714, C138714)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>D1+</td><td>PER_SSTX_P</td><td>J3.9 (SSTX+), U2.3 (A0p)</td></tr>
+<tr><td>2</td><td>D1-</td><td>PER_SSTX_N</td><td>J3.8 (SSTX-), U2.4 (A0n)</td></tr>
+<tr><td>3</td><td>GND</td><td>GND</td><td><span class=dim>99 connections</span></td></tr>
+<tr><td>4</td><td>D2+</td><td>PER_SSRX_P</td><td>J3.6 (SSRX+), U2.7 (A1p)</td></tr>
+<tr><td>5</td><td>D2-</td><td>PER_SSRX_N</td><td>J3.5 (SSRX-), U2.8 (A1n)</td></tr>
+<tr><td>6</td><td>NC</td><td>PER_SSRX_N</td><td>J3.5 (SSRX-), U2.8 (A1n)</td></tr>
+<tr><td>7</td><td>NC</td><td>PER_SSRX_P</td><td>J3.6 (SSRX+), U2.7 (A1p)</td></tr>
+<tr><td>8</td><td>GND</td><td>GND</td><td><span class=dim>99 connections</span></td></tr>
+<tr><td>9</td><td>NC</td><td>PER_SSTX_N</td><td>J3.8 (SSTX-), U2.4 (A0n)</td></tr>
+<tr><td>10</td><td>NC</td><td>PER_SSTX_P</td><td>J3.9 (SSTX+), U2.3 (A0p)</td></tr>
+</table>
+<h3>U2 — HD3SS3212IRKSR <span class=dim>(HD3SS3212IRKSR, C544517)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr class=nc><td>1</td><td>RSVD1</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>2</td><td>OEn</td><td>USB_OE_N</td><td>U3.6 (~{OE}), R4.1, U1.17 (IO9)</td></tr>
+<tr><td>3</td><td>A0p</td><td>PER_SSTX_P</td><td>J3.9 (SSTX+), U19.1 (D1+), U19.10 (NC)</td></tr>
+<tr><td>4</td><td>A0n</td><td>PER_SSTX_N</td><td>J3.8 (SSTX-), U19.2 (D1-), U19.9 (NC)</td></tr>
+<tr><td>5</td><td>GND</td><td>GND</td><td><span class=dim>97 connections</span></td></tr>
+<tr><td>6</td><td>VCC</td><td>+3V3</td><td><span class=dim>25 connections</span></td></tr>
+<tr><td>7</td><td>A1p</td><td>PER_SSRX_P</td><td>J3.6 (SSRX+), U19.4 (D2+), U19.7 (NC)</td></tr>
+<tr><td>8</td><td>A1n</td><td>PER_SSRX_N</td><td>J3.5 (SSRX-), U19.5 (D2-), U19.6 (NC)</td></tr>
+<tr><td>9</td><td>SEL</td><td>USB_SEL</td><td>U3.9 (S), R3.1, U4.4 (PR1), U1.12 (IO8)</td></tr>
+<tr class=nc><td>10</td><td>RSVD2</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>11</td><td>GND</td><td>GND</td><td><span class=dim>97 connections</span></td></tr>
+<tr><td>12</td><td>C1N</td><td>PCB_SSTX_N</td><td>J2.5 (SSTX-), U18.5 (D2-), U18.6 (NC)</td></tr>
+<tr><td>13</td><td>C1P</td><td>PCB_SSTX_P</td><td>J2.6 (SSTX+), U18.4 (D2+), U18.7 (NC)</td></tr>
+<tr><td>14</td><td>C0N</td><td>PCB_SSRX_N</td><td>J2.8 (SSRX-), U18.2 (D1-), U18.9 (NC)</td></tr>
+<tr><td>15</td><td>C0P</td><td>PCB_SSRX_P</td><td>J2.9 (SSRX+), U18.1 (D1+), U18.10 (NC)</td></tr>
+<tr><td>16</td><td>B1N</td><td>PCA_SSTX_N</td><td>J1.5 (SSTX-), U17.5 (D2-), U17.6 (NC)</td></tr>
+<tr><td>17</td><td>B1P</td><td>PCA_SSTX_P</td><td>J1.6 (SSTX+), U17.4 (D2+), U17.7 (NC)</td></tr>
+<tr><td>18</td><td>B0N</td><td>PCA_SSRX_N</td><td>J1.8 (SSRX-), U17.2 (D1-), U17.9 (NC)</td></tr>
+<tr><td>19</td><td>B0P</td><td>PCA_SSRX_P</td><td>J1.9 (SSRX+), U17.1 (D1+), U17.10 (NC)</td></tr>
+<tr><td>20</td><td>GND</td><td>GND</td><td><span class=dim>97 connections</span></td></tr>
+<tr><td>21</td><td>EP</td><td>GND</td><td><span class=dim>97 connections</span></td></tr>
+</table>
+<h3>U3 — TS3USB221ARSER <span class=dim>(TS3USB221ARSER, C128396)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>1D+</td><td>PCA_DP</td><td>J1.3 (D+), U11.4 (D2+), U11.7 (NC)</td></tr>
+<tr><td>2</td><td>1D-</td><td>PCA_DN</td><td>J1.2 (D-), U11.5 (D2-), U11.6 (NC)</td></tr>
+<tr><td>3</td><td>2D+</td><td>PCB_DP</td><td>J2.3 (D+), U12.1 (D1+), U12.10 (NC)</td></tr>
+<tr><td>4</td><td>2D-</td><td>PCB_DN</td><td>J2.2 (D-), U12.2 (D1-), U12.9 (NC)</td></tr>
+<tr><td>5</td><td>GND</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+<tr><td>6</td><td>~{OE}</td><td>USB_OE_N</td><td>U2.2 (OEn), R4.1, U1.17 (IO9)</td></tr>
+<tr><td>7</td><td>D-</td><td>PER_DN</td><td>J3.2 (D-), U13.2 (D1-), U13.9 (NC)</td></tr>
+<tr><td>8</td><td>D+</td><td>PER_DP</td><td>J3.3 (D+), U13.1 (D1+), U13.10 (NC)</td></tr>
+<tr><td>9</td><td>S</td><td>USB_SEL</td><td>U2.9 (SEL), R3.1, U4.4 (PR1), U1.12 (IO8)</td></tr>
+<tr><td>10</td><td>VCC</td><td>+3V3</td><td><span class=dim>25 connections</span></td></tr>
+</table>
+<h3>U11 — TPD4E05U06DQAR_C138714 <span class=dim>(TPD4E05U06DQAR_C138714, C138714)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr class=nc><td>1</td><td>D1+</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>2</td><td>D1-</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>3</td><td>GND</td><td>GND</td><td><span class=dim>99 connections</span></td></tr>
+<tr><td>4</td><td>D2+</td><td>PCA_DP</td><td>J1.3 (D+), U3.1 (1D+)</td></tr>
+<tr><td>5</td><td>D2-</td><td>PCA_DN</td><td>J1.2 (D-), U3.2 (1D-)</td></tr>
+<tr><td>6</td><td>NC</td><td>PCA_DN</td><td>J1.2 (D-), U3.2 (1D-)</td></tr>
+<tr><td>7</td><td>NC</td><td>PCA_DP</td><td>J1.3 (D+), U3.1 (1D+)</td></tr>
+<tr><td>8</td><td>GND</td><td>GND</td><td><span class=dim>99 connections</span></td></tr>
+<tr class=nc><td>9</td><td>NC</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>10</td><td>NC</td><td><i>not connected</i></td><td></td></tr>
+</table>
+<h3>U12 — TPD4E05U06DQAR_C138714 <span class=dim>(TPD4E05U06DQAR_C138714, C138714)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>D1+</td><td>PCB_DP</td><td>J2.3 (D+), U3.3 (2D+)</td></tr>
+<tr><td>2</td><td>D1-</td><td>PCB_DN</td><td>J2.2 (D-), U3.4 (2D-)</td></tr>
+<tr><td>3</td><td>GND</td><td>GND</td><td><span class=dim>99 connections</span></td></tr>
+<tr class=nc><td>4</td><td>D2+</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>5</td><td>D2-</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>6</td><td>NC</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>7</td><td>NC</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>8</td><td>GND</td><td>GND</td><td><span class=dim>99 connections</span></td></tr>
+<tr><td>9</td><td>NC</td><td>PCB_DN</td><td>J2.2 (D-), U3.4 (2D-)</td></tr>
+<tr><td>10</td><td>NC</td><td>PCB_DP</td><td>J2.3 (D+), U3.3 (2D+)</td></tr>
+</table>
+<h3>U13 — TPD4E05U06DQAR_C138714 <span class=dim>(TPD4E05U06DQAR_C138714, C138714)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>D1+</td><td>PER_DP</td><td>J3.3 (D+), U3.8 (D+)</td></tr>
+<tr><td>2</td><td>D1-</td><td>PER_DN</td><td>J3.2 (D-), U3.7 (D-)</td></tr>
+<tr><td>3</td><td>GND</td><td>GND</td><td><span class=dim>99 connections</span></td></tr>
+<tr class=nc><td>4</td><td>D2+</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>5</td><td>D2-</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>6</td><td>NC</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>7</td><td>NC</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>8</td><td>GND</td><td>GND</td><td><span class=dim>99 connections</span></td></tr>
+<tr><td>9</td><td>NC</td><td>PER_DN</td><td>J3.2 (D-), U3.7 (D-)</td></tr>
+<tr><td>10</td><td>NC</td><td>PER_DP</td><td>J3.3 (D+), U3.8 (D+)</td></tr>
+</table>
+<h3>Passives</h3><table><tr><th>ref</th><th>value</th><th>joins</th><th>LCSC</th></tr>
+<tr><td>C1</td><td>100nF</td><td>+3V3 — GND</td><td>C1525</td></tr>
+<tr><td>C2</td><td>1uF</td><td>+3V3 — GND</td><td>C52923</td></tr>
+<tr><td>C3</td><td>100nF</td><td>+3V3 — GND</td><td>C1525</td></tr>
+<tr><td>C4</td><td>1uF</td><td>VBUS_A — GND</td><td>C52923</td></tr>
+<tr><td>C5</td><td>1uF</td><td>VBUS_B — GND</td><td>C52923</td></tr>
+<tr><td>C7</td><td>22uF</td><td>VBUS_PERIPH — GND</td><td>C45783</td></tr>
+<tr><td>C8</td><td>22uF</td><td>VBUS_PERIPH — GND</td><td>C45783</td></tr>
+<tr><td>C9</td><td>100nF</td><td>VBUS_PERIPH — GND</td><td>C1525</td></tr>
+<tr><td>C13</td><td>10uF</td><td>+3V3 — GND</td><td>C15850</td></tr>
+<tr><td>C15</td><td>100nF</td><td>+3V3 — GND</td><td>C1525</td></tr>
+<tr><td>C17</td><td>100nF</td><td>+3V3 — GND</td><td>C1525</td></tr>
+<tr><td>C18</td><td>22uF</td><td>+3V3 — GND</td><td>C45783</td></tr>
+<tr><td>C19</td><td>100nF</td><td>+3V3 — GND</td><td>C1525</td></tr>
+<tr><td>C23</td><td>1uF</td><td>VBUS_A — GND</td><td>C52923</td></tr>
+<tr><td>C24</td><td>1uF</td><td>VBUS_B — GND</td><td>C52923</td></tr>
+<tr><td>R3</td><td>10k</td><td>USB_SEL — GND</td><td>C25744</td></tr>
+<tr><td>R4</td><td>10k</td><td>USB_OE_N — +3V3</td><td>C25744</td></tr>
+<tr><td>R8</td><td>10k</td><td>VBUS_A — VBUS_A_SENSE</td><td>C25744</td></tr>
+<tr><td>R10</td><td>10k</td><td>VBUS_B — VBUS_B_SENSE</td><td>C25744</td></tr>
+</table>
+<h2 id=b1>Peripheral power</h2>
+<p>U4 picks the source (follows USB_SEL via PR1, MODE tied high); U20 switches the port on/off (PERIPH_EN), limits it to 1.2-1.38 A and flags faults.</p>
+<h3>U4 — TPS2116DRL <span class=dim>(TPS2116DRL, C3235557)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>GND</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+<tr><td>2</td><td>VOUT</td><td>VBUS_PERIPH_RAW</td><td>U20.1 (IN), C6.1</td></tr>
+<tr><td>3</td><td>VIN1</td><td>VBUS_B</td><td>J2.1 (VBUS), C5.1, U7.1 (VIN), R10.1, C24.1</td></tr>
+<tr><td>4</td><td>PR1</td><td>USB_SEL</td><td>U2.9 (SEL), U3.9 (S), R3.1, U1.12 (IO8)</td></tr>
+<tr><td>5</td><td>MODE</td><td>+3V3</td><td><span class=dim>25 connections</span></td></tr>
+<tr><td>6</td><td>VIN2</td><td>VBUS_A</td><td>J1.1 (VBUS), C4.1, U6.1 (VIN), R8.1, C23.1</td></tr>
+<tr><td>7</td><td>VOUT</td><td>VBUS_PERIPH_RAW</td><td>U20.1 (IN), C6.1</td></tr>
+<tr class=nc><td>8</td><td>ST</td><td><i>not connected</i></td><td></td></tr>
+</table>
+<h3>U20 — TPS2553DBVR <span class=dim>(TPS2553DBVR, C55266)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>IN</td><td>VBUS_PERIPH_RAW</td><td>U4.7 (VOUT), U4.2 (VOUT), C6.1</td></tr>
+<tr><td>2</td><td>GND</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+<tr><td>3</td><td>EN</td><td>PERIPH_EN</td><td>R6.1, U1.18 (IO10)</td></tr>
+<tr><td>4</td><td>/FAULT</td><td>PERIPH_FAULT_N</td><td>R7.1, U1.9 (IO16)</td></tr>
+<tr><td>5</td><td>ILIM</td><td>PERIPH_ILIM</td><td>R5.1</td></tr>
+<tr><td>6</td><td>OUT</td><td>VBUS_PERIPH</td><td>J3.1 (VBUS), C7.1, C8.1, C9.1</td></tr>
+</table>
+<h3>Passives</h3><table><tr><th>ref</th><th>value</th><th>joins</th><th>LCSC</th></tr>
+<tr><td>C6</td><td>100nF</td><td>VBUS_PERIPH_RAW — GND</td><td>C1525</td></tr>
+<tr><td>R5</td><td>20k</td><td>PERIPH_ILIM — GND</td><td>C25765</td></tr>
+<tr><td>R6</td><td>10k</td><td>PERIPH_EN — GND</td><td>C25744</td></tr>
+<tr><td>R7</td><td>10k</td><td>PERIPH_FAULT_N — +3V3</td><td>C25744</td></tr>
+</table>
+<h2 id=b2>System power</h2>
+<p>Ideal-diode OR of USB A / USB B / AUX VBUS into +5V_SYS, then the 3.3 V LDO.  J4 is the aux / flashing USB-C.</p>
+<h3>U6 — LM66100DCK <span class=dim>(LM66100DCK, C2869734)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>VIN</td><td>VBUS_A</td><td>J1.1 (VBUS), U4.6 (VIN2), C4.1, R8.1, C23.1</td></tr>
+<tr><td>2</td><td>GND</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+<tr><td>3</td><td>~{CE}</td><td>+5V_SYS</td><td><span class=dim>14 connections</span></td></tr>
+<tr class=nc><td>4</td><td>NC</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>5</td><td>ST</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>6</td><td>VOUT</td><td>+5V_SYS</td><td><span class=dim>14 connections</span></td></tr>
+</table>
+<h3>U7 — LM66100DCK <span class=dim>(LM66100DCK, C2869734)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>VIN</td><td>VBUS_B</td><td>J2.1 (VBUS), U4.3 (VIN1), C5.1, R10.1, C24.1</td></tr>
+<tr><td>2</td><td>GND</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+<tr><td>3</td><td>~{CE}</td><td>+5V_SYS</td><td><span class=dim>14 connections</span></td></tr>
+<tr class=nc><td>4</td><td>NC</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>5</td><td>ST</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>6</td><td>VOUT</td><td>+5V_SYS</td><td><span class=dim>14 connections</span></td></tr>
+</table>
+<h3>U8 — LM66100DCK <span class=dim>(LM66100DCK, C2869734)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>VIN</td><td>VBUS_AUX</td><td>J4.A4 (VBUS), J4.A9 (VBUS), J4.B4 (VBUS), J4.B9 (VBUS), U14.5 (VBUS), C10.1</td></tr>
+<tr><td>2</td><td>GND</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+<tr><td>3</td><td>~{CE}</td><td>+5V_SYS</td><td><span class=dim>14 connections</span></td></tr>
+<tr class=nc><td>4</td><td>NC</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>5</td><td>ST</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>6</td><td>VOUT</td><td>+5V_SYS</td><td><span class=dim>14 connections</span></td></tr>
+</table>
+<h3>U5 — AP2112K-3.3 <span class=dim>(AP2112K-3.3, C51118)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>VIN</td><td>+5V_SYS</td><td><span class=dim>14 connections</span></td></tr>
+<tr><td>2</td><td>GND</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+<tr><td>3</td><td>EN</td><td>+5V_SYS</td><td><span class=dim>14 connections</span></td></tr>
+<tr class=nc><td>4</td><td>NC</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>5</td><td>VOUT</td><td>+3V3</td><td><span class=dim>25 connections</span></td></tr>
+</table>
+<h3>J4 — USB_C_Receptacle_USB2.0_16P <span class=dim>(USB_C_Receptacle_USB2.0_16P, C165948)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>A1</td><td>GND</td><td>GND</td><td><span class=dim>96 connections</span></td></tr>
+<tr><td>A4</td><td>VBUS</td><td>VBUS_AUX</td><td>U14.5 (VBUS), U8.1 (VIN), C10.1</td></tr>
+<tr><td>A5</td><td>CC1</td><td>AUX_CC1</td><td>R1.1</td></tr>
+<tr><td>A6</td><td>D+</td><td>AUX_DP</td><td>U14.1 (I/O1), U14.6 (I/O1), U1.14 (USB_D+)</td></tr>
+<tr><td>A7</td><td>D-</td><td>AUX_DN</td><td>U14.3 (I/O2), U14.4 (I/O2), U1.13 (USB_D-)</td></tr>
+<tr class=nc><td>A8</td><td>SBU1</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>A9</td><td>VBUS</td><td>VBUS_AUX</td><td>U14.5 (VBUS), U8.1 (VIN), C10.1</td></tr>
+<tr><td>B1</td><td>GND</td><td>GND</td><td><span class=dim>96 connections</span></td></tr>
+<tr><td>B4</td><td>VBUS</td><td>VBUS_AUX</td><td>U14.5 (VBUS), U8.1 (VIN), C10.1</td></tr>
+<tr><td>B5</td><td>CC2</td><td>AUX_CC2</td><td>R2.1</td></tr>
+<tr><td>B6</td><td>D+</td><td>AUX_DP</td><td>U14.1 (I/O1), U14.6 (I/O1), U1.14 (USB_D+)</td></tr>
+<tr><td>B7</td><td>D-</td><td>AUX_DN</td><td>U14.3 (I/O2), U14.4 (I/O2), U1.13 (USB_D-)</td></tr>
+<tr class=nc><td>B8</td><td>SBU2</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>B9</td><td>VBUS</td><td>VBUS_AUX</td><td>U14.5 (VBUS), U8.1 (VIN), C10.1</td></tr>
+<tr><td>SH</td><td>SHIELD</td><td>GND</td><td><span class=dim>96 connections</span></td></tr>
+<tr><td>A12</td><td>GND</td><td>GND</td><td><span class=dim>96 connections</span></td></tr>
+<tr><td>B12</td><td>GND</td><td>GND</td><td><span class=dim>96 connections</span></td></tr>
+</table>
+<h3>U14 — USBLC6-2SC6 <span class=dim>(USBLC6-2SC6, C7519)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>I/O1</td><td>AUX_DP</td><td>J4.A6 (D+), J4.B6 (D+), U1.14 (USB_D+)</td></tr>
+<tr><td>2</td><td>GND</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+<tr><td>3</td><td>I/O2</td><td>AUX_DN</td><td>J4.A7 (D-), J4.B7 (D-), U1.13 (USB_D-)</td></tr>
+<tr><td>4</td><td>I/O2</td><td>AUX_DN</td><td>J4.A7 (D-), J4.B7 (D-), U1.13 (USB_D-)</td></tr>
+<tr><td>5</td><td>VBUS</td><td>VBUS_AUX</td><td>J4.A4 (VBUS), J4.A9 (VBUS), J4.B4 (VBUS), J4.B9 (VBUS), U8.1 (VIN), C10.1</td></tr>
+<tr><td>6</td><td>I/O1</td><td>AUX_DP</td><td>J4.A6 (D+), J4.B6 (D+), U1.14 (USB_D+)</td></tr>
+</table>
+<h3>Passives</h3><table><tr><th>ref</th><th>value</th><th>joins</th><th>LCSC</th></tr>
+<tr><td>C10</td><td>1uF</td><td>VBUS_AUX — GND</td><td>C52923</td></tr>
+<tr><td>C11</td><td>10uF</td><td>+5V_SYS — GND</td><td>C15850</td></tr>
+<tr><td>C12</td><td>1uF</td><td>+5V_SYS — GND</td><td>C52923</td></tr>
+<tr><td>C25</td><td>10uF</td><td>+5V_SYS — GND</td><td>C15850</td></tr>
+<tr><td>R1</td><td>5.1k</td><td>AUX_CC1 — GND</td><td>C25905</td></tr>
+<tr><td>R2</td><td>5.1k</td><td>AUX_CC2 — GND</td><td>C25905</td></tr>
+</table>
+<h2 id=b3>HDMI 1 - DDC/CI</h2>
+<p>Only DDC and +5V are wired (HPD unused); no video.</p>
+<h3>J5 — HDMI-001 <span class=dim>(HDMI-001, C138388)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr class=nc><td>1</td><td>TMDSData2+</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>2</td><td>TMDSData2Shield</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>3</td><td>TMDSData2-</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>4</td><td>TMDSData1+</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>5</td><td>TMDSData1Shield</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>6</td><td>TMDSData1-</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>7</td><td>TMDSData0+</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>8</td><td>TMDSData0Shield</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>9</td><td>TMDSData0-</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>10</td><td>TMDSClock+</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>11</td><td>TMDSClockShield</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>12</td><td>TMDSClock-</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>13</td><td>CEC</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>14</td><td>Reserved(N.C.)</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>15</td><td>SCL</td><td>HDMI1_SCL</td><td>U9.6 (SCL2), R15.1, U15.1 (I/O1), U15.6 (I/O1)</td></tr>
+<tr><td>16</td><td>SDA</td><td>HDMI1_SDA</td><td>U9.5 (SDA2), R16.1, U15.3 (I/O2), U15.4 (I/O2)</td></tr>
+<tr><td>17</td><td>DDC/CECGround</td><td>GND</td><td><span class=dim>96 connections</span></td></tr>
+<tr><td>18</td><td>+5VPower</td><td>HDMI1_5V</td><td>F2.2, C14.1, R12.2, R15.2, R16.2, U15.5 (VBUS)</td></tr>
+<tr class=nc><td>19</td><td>HotPlugDetect</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>20</td><td>20</td><td>GND</td><td><span class=dim>96 connections</span></td></tr>
+<tr><td>21</td><td>21</td><td>GND</td><td><span class=dim>96 connections</span></td></tr>
+<tr><td>22</td><td>22</td><td>GND</td><td><span class=dim>96 connections</span></td></tr>
+<tr><td>23</td><td>23</td><td>GND</td><td><span class=dim>96 connections</span></td></tr>
+</table>
+<h3>U9 — PCA9306DC <span class=dim>(PCA9306DC, C33196)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>GND</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+<tr><td>2</td><td>VREF1</td><td>+3V3</td><td><span class=dim>25 connections</span></td></tr>
+<tr><td>3</td><td>SCL1</td><td>DDC1_SCL</td><td>R13.1, U1.38 (IO2)</td></tr>
+<tr><td>4</td><td>SDA1</td><td>DDC1_SDA</td><td>R14.1, U1.39 (IO1)</td></tr>
+<tr><td>5</td><td>SDA2</td><td>HDMI1_SDA</td><td>J5.16 (SDA), R16.1, U15.3 (I/O2), U15.4 (I/O2)</td></tr>
+<tr><td>6</td><td>SCL2</td><td>HDMI1_SCL</td><td>J5.15 (SCL), R15.1, U15.1 (I/O1), U15.6 (I/O1)</td></tr>
+<tr><td>7</td><td>VREF2</td><td>DDC1_VREF2</td><td>R12.1</td></tr>
+<tr><td>8</td><td>EN</td><td>DDC1_VREF2</td><td>R12.1</td></tr>
+</table>
+<h3>U15 — USBLC6-2SC6 <span class=dim>(USBLC6-2SC6, C7519)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>I/O1</td><td>HDMI1_SCL</td><td>J5.15 (SCL), U9.6 (SCL2), R15.1</td></tr>
+<tr><td>2</td><td>GND</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+<tr><td>3</td><td>I/O2</td><td>HDMI1_SDA</td><td>J5.16 (SDA), U9.5 (SDA2), R16.1</td></tr>
+<tr><td>4</td><td>I/O2</td><td>HDMI1_SDA</td><td>J5.16 (SDA), U9.5 (SDA2), R16.1</td></tr>
+<tr><td>5</td><td>VBUS</td><td>HDMI1_5V</td><td>J5.18 (+5VPower), F2.2, C14.1, R12.2, R15.2, R16.2</td></tr>
+<tr><td>6</td><td>I/O1</td><td>HDMI1_SCL</td><td>J5.15 (SCL), U9.6 (SCL2), R15.1</td></tr>
+</table>
+<h3>U21 — LM66100DCK <span class=dim>(LM66100DCK, C2869734)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>VIN</td><td>+5V_SYS</td><td><span class=dim>15 connections</span></td></tr>
+<tr><td>2</td><td>GND</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+<tr><td>3</td><td>~{CE}</td><td>HDMI1_5V_D</td><td>F2.1</td></tr>
+<tr class=nc><td>4</td><td>NC</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>5</td><td>ST</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>6</td><td>VOUT</td><td>HDMI1_5V_D</td><td>F2.1</td></tr>
+</table>
+<h3>F2 — 100mA <span class=dim>(Polyfuse, C20975)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td></td><td>HDMI1_5V_D</td><td>U21.3 (~{CE}), U21.6 (VOUT)</td></tr>
+<tr><td>2</td><td></td><td>HDMI1_5V</td><td>J5.18 (+5VPower), C14.1, R12.2, R15.2, R16.2, U15.5 (VBUS)</td></tr>
+</table>
+<h3>Passives</h3><table><tr><th>ref</th><th>value</th><th>joins</th><th>LCSC</th></tr>
+<tr><td>C14</td><td>100nF</td><td>HDMI1_5V — GND</td><td>C1525</td></tr>
+<tr><td>R12</td><td>200k</td><td>DDC1_VREF2 — HDMI1_5V</td><td>C25764</td></tr>
+<tr><td>R13</td><td>4.7k</td><td>DDC1_SCL — +3V3</td><td>C25900</td></tr>
+<tr><td>R14</td><td>4.7k</td><td>DDC1_SDA — +3V3</td><td>C25900</td></tr>
+<tr><td>R15</td><td>2k</td><td>HDMI1_SCL — HDMI1_5V</td><td>C4109</td></tr>
+<tr><td>R16</td><td>2k</td><td>HDMI1_SDA — HDMI1_5V</td><td>C4109</td></tr>
+</table>
+<h2 id=b4>HDMI 2 - DDC/CI</h2>
+<p>Only DDC and +5V are wired (HPD unused); no video.</p>
+<h3>J6 — HDMI-001 <span class=dim>(HDMI-001, C138388)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr class=nc><td>1</td><td>TMDSData2+</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>2</td><td>TMDSData2Shield</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>3</td><td>TMDSData2-</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>4</td><td>TMDSData1+</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>5</td><td>TMDSData1Shield</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>6</td><td>TMDSData1-</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>7</td><td>TMDSData0+</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>8</td><td>TMDSData0Shield</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>9</td><td>TMDSData0-</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>10</td><td>TMDSClock+</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>11</td><td>TMDSClockShield</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>12</td><td>TMDSClock-</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>13</td><td>CEC</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>14</td><td>Reserved(N.C.)</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>15</td><td>SCL</td><td>HDMI2_SCL</td><td>U10.6 (SCL2), R20.1, U16.1 (I/O1), U16.6 (I/O1)</td></tr>
+<tr><td>16</td><td>SDA</td><td>HDMI2_SDA</td><td>U10.5 (SDA2), R21.1, U16.3 (I/O2), U16.4 (I/O2)</td></tr>
+<tr><td>17</td><td>DDC/CECGround</td><td>GND</td><td><span class=dim>96 connections</span></td></tr>
+<tr><td>18</td><td>+5VPower</td><td>HDMI2_5V</td><td>F3.2, C16.1, R17.2, R20.2, R21.2, U16.5 (VBUS)</td></tr>
+<tr class=nc><td>19</td><td>HotPlugDetect</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>20</td><td>20</td><td>GND</td><td><span class=dim>96 connections</span></td></tr>
+<tr><td>21</td><td>21</td><td>GND</td><td><span class=dim>96 connections</span></td></tr>
+<tr><td>22</td><td>22</td><td>GND</td><td><span class=dim>96 connections</span></td></tr>
+<tr><td>23</td><td>23</td><td>GND</td><td><span class=dim>96 connections</span></td></tr>
+</table>
+<h3>U10 — PCA9306DC <span class=dim>(PCA9306DC, C33196)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>GND</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+<tr><td>2</td><td>VREF1</td><td>+3V3</td><td><span class=dim>25 connections</span></td></tr>
+<tr><td>3</td><td>SCL1</td><td>DDC2_SCL</td><td>R18.1, U1.5 (IO5)</td></tr>
+<tr><td>4</td><td>SDA1</td><td>DDC2_SDA</td><td>R19.1, U1.4 (IO4)</td></tr>
+<tr><td>5</td><td>SDA2</td><td>HDMI2_SDA</td><td>J6.16 (SDA), R21.1, U16.3 (I/O2), U16.4 (I/O2)</td></tr>
+<tr><td>6</td><td>SCL2</td><td>HDMI2_SCL</td><td>J6.15 (SCL), R20.1, U16.1 (I/O1), U16.6 (I/O1)</td></tr>
+<tr><td>7</td><td>VREF2</td><td>DDC2_VREF2</td><td>R17.1</td></tr>
+<tr><td>8</td><td>EN</td><td>DDC2_VREF2</td><td>R17.1</td></tr>
+</table>
+<h3>U16 — USBLC6-2SC6 <span class=dim>(USBLC6-2SC6, C7519)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>I/O1</td><td>HDMI2_SCL</td><td>J6.15 (SCL), U10.6 (SCL2), R20.1</td></tr>
+<tr><td>2</td><td>GND</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+<tr><td>3</td><td>I/O2</td><td>HDMI2_SDA</td><td>J6.16 (SDA), U10.5 (SDA2), R21.1</td></tr>
+<tr><td>4</td><td>I/O2</td><td>HDMI2_SDA</td><td>J6.16 (SDA), U10.5 (SDA2), R21.1</td></tr>
+<tr><td>5</td><td>VBUS</td><td>HDMI2_5V</td><td>J6.18 (+5VPower), F3.2, C16.1, R17.2, R20.2, R21.2</td></tr>
+<tr><td>6</td><td>I/O1</td><td>HDMI2_SCL</td><td>J6.15 (SCL), U10.6 (SCL2), R20.1</td></tr>
+</table>
+<h3>U22 — LM66100DCK <span class=dim>(LM66100DCK, C2869734)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>VIN</td><td>+5V_SYS</td><td><span class=dim>15 connections</span></td></tr>
+<tr><td>2</td><td>GND</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+<tr><td>3</td><td>~{CE}</td><td>HDMI2_5V_D</td><td>F3.1</td></tr>
+<tr class=nc><td>4</td><td>NC</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>5</td><td>ST</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>6</td><td>VOUT</td><td>HDMI2_5V_D</td><td>F3.1</td></tr>
+</table>
+<h3>F3 — 100mA <span class=dim>(Polyfuse, C20975)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td></td><td>HDMI2_5V_D</td><td>U22.3 (~{CE}), U22.6 (VOUT)</td></tr>
+<tr><td>2</td><td></td><td>HDMI2_5V</td><td>J6.18 (+5VPower), C16.1, R17.2, R20.2, R21.2, U16.5 (VBUS)</td></tr>
+</table>
+<h3>Passives</h3><table><tr><th>ref</th><th>value</th><th>joins</th><th>LCSC</th></tr>
+<tr><td>C16</td><td>100nF</td><td>HDMI2_5V — GND</td><td>C1525</td></tr>
+<tr><td>R17</td><td>200k</td><td>DDC2_VREF2 — HDMI2_5V</td><td>C25764</td></tr>
+<tr><td>R18</td><td>4.7k</td><td>DDC2_SCL — +3V3</td><td>C25900</td></tr>
+<tr><td>R19</td><td>4.7k</td><td>DDC2_SDA — +3V3</td><td>C25900</td></tr>
+<tr><td>R20</td><td>2k</td><td>HDMI2_SCL — HDMI2_5V</td><td>C4109</td></tr>
+<tr><td>R21</td><td>2k</td><td>HDMI2_SDA — HDMI2_5V</td><td>C4109</td></tr>
+</table>
+<h2 id=b5>Grove button port (M5Stack pinout)</h2>
+<p>Yellow = LED data (SK6812), white = key, red = 5 V via 100 mA PTC.</p>
+<h3>J8 — GROVE_BTN <span class=dim>(ZX-HY2.0-4PWT, C7429571)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>1</td><td>GND</td><td><span class=dim>98 connections</span></td></tr>
+<tr><td>2</td><td>2</td><td>GROVE_5V</td><td>F4.2, C22.1</td></tr>
+<tr><td>3</td><td>3</td><td>GROVE_LED</td><td>R27.2</td></tr>
+<tr><td>4</td><td>4</td><td>GROVE_BTN</td><td>R26.2</td></tr>
+<tr><td>5</td><td>5</td><td>GND</td><td><span class=dim>98 connections</span></td></tr>
+<tr><td>6</td><td>6</td><td>GND</td><td><span class=dim>98 connections</span></td></tr>
+</table>
+<h3>F4 — 100mA <span class=dim>(Polyfuse, C20975)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td></td><td>+5V_SYS</td><td><span class=dim>15 connections</span></td></tr>
+<tr><td>2</td><td></td><td>GROVE_5V</td><td>C22.1, J8.2</td></tr>
+</table>
+<h3>Passives</h3><table><tr><th>ref</th><th>value</th><th>joins</th><th>LCSC</th></tr>
+<tr><td>C22</td><td>100nF</td><td>GROVE_5V — GND</td><td>C1525</td></tr>
+</table>
+<h2 id=b6>ESP32-S3 controller, buttons, LEDs, headers</h2>
+<h3>U1 — ESP32-S3-WROOM-1-N8R2 <span class=dim>(ESP32-S3-WROOM-1, C2913204)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>GND</td><td>GND</td><td><span class=dim>98 connections</span></td></tr>
+<tr><td>2</td><td>3V3</td><td>+3V3</td><td><span class=dim>25 connections</span></td></tr>
+<tr><td>3</td><td>EN</td><td>EN</td><td>R22.1, C20.1, SW1.1</td></tr>
+<tr><td>4</td><td>IO4</td><td>DDC2_SDA</td><td>U10.4 (SDA1), R19.1</td></tr>
+<tr><td>5</td><td>IO5</td><td>DDC2_SCL</td><td>U10.3 (SCL1), R18.1</td></tr>
+<tr class=nc><td>6</td><td>IO6</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>7</td><td>IO7</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>8</td><td>IO15</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>9</td><td>IO16</td><td>PERIPH_FAULT_N</td><td>U20.4 (/FAULT), R7.1</td></tr>
+<tr><td>10</td><td>IO17</td><td>EXT_LED</td><td>R27.1</td></tr>
+<tr><td>11</td><td>IO18</td><td>GPIO18</td><td>J9.7 (Pin_7)</td></tr>
+<tr><td>12</td><td>IO8</td><td>USB_SEL</td><td>U2.9 (SEL), U3.9 (S), R3.1, U4.4 (PR1)</td></tr>
+<tr><td>13</td><td>USB_D-</td><td>AUX_DN</td><td>J4.A7 (D-), J4.B7 (D-), U14.3 (I/O2), U14.4 (I/O2)</td></tr>
+<tr><td>14</td><td>USB_D+</td><td>AUX_DP</td><td>J4.A6 (D+), J4.B6 (D+), U14.1 (I/O1), U14.6 (I/O1)</td></tr>
+<tr class=nc><td>15</td><td>IO3</td><td><i>not connected</i></td><td></td></tr>
+<tr class=nc><td>16</td><td>IO46</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>17</td><td>IO9</td><td>USB_OE_N</td><td>U2.2 (OEn), U3.6 (~{OE}), R4.1</td></tr>
+<tr><td>18</td><td>IO10</td><td>PERIPH_EN</td><td>U20.3 (EN), R6.1</td></tr>
+<tr><td>19</td><td>IO11</td><td>VBUS_A_SENSE</td><td>R8.2, R9.1</td></tr>
+<tr><td>20</td><td>IO12</td><td>VBUS_B_SENSE</td><td>R10.2, R11.1</td></tr>
+<tr><td>21</td><td>IO13</td><td>BTN_SWITCH</td><td>SW3.1, R24.1, R26.1</td></tr>
+<tr><td>22</td><td>IO14</td><td>LED_RGB</td><td>R25.1</td></tr>
+<tr><td>23</td><td>IO21</td><td>GPIO21</td><td>J9.5 (Pin_5)</td></tr>
+<tr><td>24</td><td>IO47</td><td>GPIO47</td><td>J9.3 (Pin_3)</td></tr>
+<tr><td>25</td><td>IO48</td><td>GPIO48</td><td>J9.1 (Pin_1)</td></tr>
+<tr class=nc><td>26</td><td>IO45</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>27</td><td>IO0</td><td>BOOT</td><td>R23.1, SW2.1</td></tr>
+<tr><td>28</td><td>IO35</td><td>GPIO35</td><td>J9.2 (Pin_2)</td></tr>
+<tr><td>29</td><td>IO36</td><td>GPIO36</td><td>J9.4 (Pin_4)</td></tr>
+<tr><td>30</td><td>IO37</td><td>GPIO37</td><td>J9.6 (Pin_6)</td></tr>
+<tr><td>31</td><td>IO38</td><td>GPIO38</td><td>J9.8 (Pin_8)</td></tr>
+<tr><td>32</td><td>IO39</td><td>GPIO39</td><td>J9.10 (Pin_10)</td></tr>
+<tr><td>33</td><td>IO40</td><td>GPIO40</td><td>J9.12 (Pin_12)</td></tr>
+<tr><td>34</td><td>IO41</td><td>GPIO41</td><td>J9.14 (Pin_14)</td></tr>
+<tr><td>35</td><td>IO42</td><td>GPIO42</td><td>J9.16 (Pin_16)</td></tr>
+<tr><td>36</td><td>RXD0</td><td>RXD0</td><td>J7.3 (Pin_3)</td></tr>
+<tr><td>37</td><td>TXD0</td><td>TXD0</td><td>J7.2 (Pin_2)</td></tr>
+<tr><td>38</td><td>IO2</td><td>DDC1_SCL</td><td>U9.3 (SCL1), R13.1</td></tr>
+<tr><td>39</td><td>IO1</td><td>DDC1_SDA</td><td>U9.4 (SDA1), R14.1</td></tr>
+<tr><td>40</td><td>GND</td><td>GND</td><td><span class=dim>98 connections</span></td></tr>
+<tr><td>41</td><td>GND</td><td>GND</td><td><span class=dim>98 connections</span></td></tr>
+</table>
+<h3>SW1 — RESET <span class=dim>(SW_Push, C571338)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>1</td><td>EN</td><td>U1.3 (EN), R22.1, C20.1</td></tr>
+<tr><td>2</td><td>2</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+</table>
+<h3>SW2 — BOOT <span class=dim>(SW_Push, C571338)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>1</td><td>BOOT</td><td>U1.27 (IO0), R23.1</td></tr>
+<tr><td>2</td><td>2</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+</table>
+<h3>SW3 — SWITCH <span class=dim>(SW_Push, C571338)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>1</td><td>BTN_SWITCH</td><td>U1.21 (IO13), R24.1, R26.1</td></tr>
+<tr><td>2</td><td>2</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+</table>
+<h3>D3 — SK6812SIDE-A <span class=dim>(SK6812SIDE-A_C5378721, C5378721)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>DIN</td><td>LED_DIN</td><td>R25.2</td></tr>
+<tr><td>2</td><td>VDD</td><td>LED_VDD</td><td>D4.1 (K), C21.1</td></tr>
+<tr class=nc><td>3</td><td>DOUT</td><td><i>not connected</i></td><td></td></tr>
+<tr><td>4</td><td>GND</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+</table>
+<h3>D4 — 1N4148W <span class=dim>(D, C81598)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>K</td><td>LED_VDD</td><td>D3.2 (VDD), C21.1</td></tr>
+<tr><td>2</td><td>A</td><td>+5V_SYS</td><td><span class=dim>15 connections</span></td></tr>
+</table>
+<h3>J7 — UART <span class=dim>(Conn_01x04, C32713270)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>Pin_1</td><td>GND</td><td><span class=dim>100 connections</span></td></tr>
+<tr><td>2</td><td>Pin_2</td><td>TXD0</td><td>U1.37 (TXD0)</td></tr>
+<tr><td>3</td><td>Pin_3</td><td>RXD0</td><td>U1.36 (RXD0)</td></tr>
+<tr><td>4</td><td>Pin_4</td><td>+3V3</td><td><span class=dim>25 connections</span></td></tr>
+</table>
+<h3>J9 — GPIO <span class=dim>(Conn_02x08_Odd_Even, C68234)</span></h3>
+<table><tr><th>pin</th><th>name</th><th>net</th><th>also on this net</th></tr>
+<tr><td>1</td><td>Pin_1</td><td>GPIO48</td><td>U1.25 (IO48)</td></tr>
+<tr><td>2</td><td>Pin_2</td><td>GPIO35</td><td>U1.28 (IO35)</td></tr>
+<tr><td>3</td><td>Pin_3</td><td>GPIO47</td><td>U1.24 (IO47)</td></tr>
+<tr><td>4</td><td>Pin_4</td><td>GPIO36</td><td>U1.29 (IO36)</td></tr>
+<tr><td>5</td><td>Pin_5</td><td>GPIO21</td><td>U1.23 (IO21)</td></tr>
+<tr><td>6</td><td>Pin_6</td><td>GPIO37</td><td>U1.30 (IO37)</td></tr>
+<tr><td>7</td><td>Pin_7</td><td>GPIO18</td><td>U1.11 (IO18)</td></tr>
+<tr><td>8</td><td>Pin_8</td><td>GPIO38</td><td>U1.31 (IO38)</td></tr>
+<tr><td>9</td><td>Pin_9</td><td>GND</td><td><span class=dim>99 connections</span></td></tr>
+<tr><td>10</td><td>Pin_10</td><td>GPIO39</td><td>U1.32 (IO39)</td></tr>
+<tr><td>11</td><td>Pin_11</td><td>+3V3</td><td><span class=dim>25 connections</span></td></tr>
+<tr><td>12</td><td>Pin_12</td><td>GPIO40</td><td>U1.33 (IO40)</td></tr>
+<tr><td>13</td><td>Pin_13</td><td>+5V_SYS</td><td><span class=dim>15 connections</span></td></tr>
+<tr><td>14</td><td>Pin_14</td><td>GPIO41</td><td>U1.34 (IO41)</td></tr>
+<tr><td>15</td><td>Pin_15</td><td>GND</td><td><span class=dim>99 connections</span></td></tr>
+<tr><td>16</td><td>Pin_16</td><td>GPIO42</td><td>U1.35 (IO42)</td></tr>
+</table>
+<h3>Passives</h3><table><tr><th>ref</th><th>value</th><th>joins</th><th>LCSC</th></tr>
+<tr><td>C20</td><td>1uF</td><td>EN — GND</td><td>C52923</td></tr>
+<tr><td>C21</td><td>100nF</td><td>LED_VDD — GND</td><td>C1525</td></tr>
+<tr><td>R9</td><td>15k</td><td>VBUS_A_SENSE — GND</td><td>C25756</td></tr>
+<tr><td>R11</td><td>15k</td><td>VBUS_B_SENSE — GND</td><td>C25756</td></tr>
+<tr><td>R22</td><td>10k</td><td>EN — +3V3</td><td>C25744</td></tr>
+<tr><td>R23</td><td>10k</td><td>BOOT — +3V3</td><td>C25744</td></tr>
+<tr><td>R24</td><td>10k</td><td>BTN_SWITCH — +3V3</td><td>C25744</td></tr>
+<tr><td>R25</td><td>100</td><td>LED_RGB — LED_DIN</td><td>C25076</td></tr>
+<tr><td>R26</td><td>100</td><td>BTN_SWITCH — GROVE_BTN</td><td>C25076</td></tr>
+<tr><td>R27</td><td>100</td><td>EXT_LED — GROVE_LED</td><td>C25076</td></tr>
+</table>
+<h2 id=nets>Net index</h2><table><tr><th>net</th><th>#</th><th>members</th></tr>
+<tr><td>+3V3</td><td>26</td><td><span class=dim>26 pins</span></td></tr>
+<tr><td>+5V_SYS</td><td>16</td><td><span class=dim>16 pins</span></td></tr>
+<tr><td>GND</td><td>101</td><td><span class=dim>101 pins</span></td></tr>
+<tr><td>AUX_CC1</td><td>2</td><td>J4.A5, R1.1</td></tr>
+<tr><td>AUX_CC2</td><td>2</td><td>J4.B5, R2.1</td></tr>
+<tr><td>AUX_DN</td><td>5</td><td>J4.A7, J4.B7, U14.3, U14.4, U1.13</td></tr>
+<tr><td>AUX_DP</td><td>5</td><td>J4.A6, J4.B6, U14.1, U14.6, U1.14</td></tr>
+<tr><td>BOOT</td><td>3</td><td>U1.27, R23.1, SW2.1</td></tr>
+<tr><td>BTN_SWITCH</td><td>4</td><td>U1.21, SW3.1, R24.1, R26.1</td></tr>
+<tr><td>DDC1_SCL</td><td>3</td><td>U9.3, R13.1, U1.38</td></tr>
+<tr><td>DDC1_SDA</td><td>3</td><td>U9.4, R14.1, U1.39</td></tr>
+<tr><td>DDC1_VREF2</td><td>3</td><td>U9.7, U9.8, R12.1</td></tr>
+<tr><td>DDC2_SCL</td><td>3</td><td>U10.3, R18.1, U1.5</td></tr>
+<tr><td>DDC2_SDA</td><td>3</td><td>U10.4, R19.1, U1.4</td></tr>
+<tr><td>DDC2_VREF2</td><td>3</td><td>U10.7, U10.8, R17.1</td></tr>
+<tr><td>EN</td><td>4</td><td>U1.3, R22.1, C20.1, SW1.1</td></tr>
+<tr><td>EXT_LED</td><td>2</td><td>U1.10, R27.1</td></tr>
+<tr><td>GPIO18</td><td>2</td><td>U1.11, J9.7</td></tr>
+<tr><td>GPIO21</td><td>2</td><td>U1.23, J9.5</td></tr>
+<tr><td>GPIO35</td><td>2</td><td>U1.28, J9.2</td></tr>
+<tr><td>GPIO36</td><td>2</td><td>U1.29, J9.4</td></tr>
+<tr><td>GPIO37</td><td>2</td><td>U1.30, J9.6</td></tr>
+<tr><td>GPIO38</td><td>2</td><td>U1.31, J9.8</td></tr>
+<tr><td>GPIO39</td><td>2</td><td>U1.32, J9.10</td></tr>
+<tr><td>GPIO40</td><td>2</td><td>U1.33, J9.12</td></tr>
+<tr><td>GPIO41</td><td>2</td><td>U1.34, J9.14</td></tr>
+<tr><td>GPIO42</td><td>2</td><td>U1.35, J9.16</td></tr>
+<tr><td>GPIO47</td><td>2</td><td>U1.24, J9.3</td></tr>
+<tr><td>GPIO48</td><td>2</td><td>U1.25, J9.1</td></tr>
+<tr><td>GROVE_5V</td><td>3</td><td>F4.2, C22.1, J8.2</td></tr>
+<tr><td>GROVE_BTN</td><td>2</td><td>R26.2, J8.4</td></tr>
+<tr><td>GROVE_LED</td><td>2</td><td>R27.2, J8.3</td></tr>
+<tr><td>HDMI1_5V</td><td>7</td><td>J5.18, F2.2, C14.1, R12.2, R15.2, R16.2, U15.5</td></tr>
+<tr><td>HDMI1_5V_D</td><td>3</td><td>U21.3, U21.6, F2.1</td></tr>
+<tr><td>HDMI1_SCL</td><td>5</td><td>J5.15, U9.6, R15.1, U15.1, U15.6</td></tr>
+<tr><td>HDMI1_SDA</td><td>5</td><td>J5.16, U9.5, R16.1, U15.3, U15.4</td></tr>
+<tr><td>HDMI2_5V</td><td>7</td><td>J6.18, F3.2, C16.1, R17.2, R20.2, R21.2, U16.5</td></tr>
+<tr><td>HDMI2_5V_D</td><td>3</td><td>U22.3, U22.6, F3.1</td></tr>
+<tr><td>HDMI2_SCL</td><td>5</td><td>J6.15, U10.6, R20.1, U16.1, U16.6</td></tr>
+<tr><td>HDMI2_SDA</td><td>5</td><td>J6.16, U10.5, R21.1, U16.3, U16.4</td></tr>
+<tr><td>LED_DIN</td><td>2</td><td>D3.1, R25.2</td></tr>
+<tr><td>LED_RGB</td><td>2</td><td>U1.22, R25.1</td></tr>
+<tr><td>LED_VDD</td><td>3</td><td>D3.2, D4.1, C21.1</td></tr>
+<tr><td>PCA_DN</td><td>4</td><td>J1.2, U11.5, U11.6, U3.2</td></tr>
+<tr><td>PCA_DP</td><td>4</td><td>J1.3, U11.4, U11.7, U3.1</td></tr>
+<tr><td>PCA_SSRX_N</td><td>4</td><td>J1.8, U17.2, U17.9, U2.18</td></tr>
+<tr><td>PCA_SSRX_P</td><td>4</td><td>J1.9, U17.1, U17.10, U2.19</td></tr>
+<tr><td>PCA_SSTX_N</td><td>4</td><td>J1.5, U17.5, U17.6, U2.16</td></tr>
+<tr><td>PCA_SSTX_P</td><td>4</td><td>J1.6, U17.4, U17.7, U2.17</td></tr>
+<tr><td>PCB_DN</td><td>4</td><td>J2.2, U12.2, U12.9, U3.4</td></tr>
+<tr><td>PCB_DP</td><td>4</td><td>J2.3, U12.1, U12.10, U3.3</td></tr>
+<tr><td>PCB_SSRX_N</td><td>4</td><td>J2.8, U18.2, U18.9, U2.14</td></tr>
+<tr><td>PCB_SSRX_P</td><td>4</td><td>J2.9, U18.1, U18.10, U2.15</td></tr>
+<tr><td>PCB_SSTX_N</td><td>4</td><td>J2.5, U18.5, U18.6, U2.12</td></tr>
+<tr><td>PCB_SSTX_P</td><td>4</td><td>J2.6, U18.4, U18.7, U2.13</td></tr>
+<tr><td>PERIPH_EN</td><td>3</td><td>U20.3, R6.1, U1.18</td></tr>
+<tr><td>PERIPH_FAULT_N</td><td>3</td><td>U20.4, R7.1, U1.9</td></tr>
+<tr><td>PERIPH_ILIM</td><td>2</td><td>U20.5, R5.1</td></tr>
+<tr><td>PER_DN</td><td>4</td><td>J3.2, U13.2, U13.9, U3.7</td></tr>
+<tr><td>PER_DP</td><td>4</td><td>J3.3, U13.1, U13.10, U3.8</td></tr>
+<tr><td>PER_SSRX_N</td><td>4</td><td>J3.5, U19.5, U19.6, U2.8</td></tr>
+<tr><td>PER_SSRX_P</td><td>4</td><td>J3.6, U19.4, U19.7, U2.7</td></tr>
+<tr><td>PER_SSTX_N</td><td>4</td><td>J3.8, U19.2, U19.9, U2.4</td></tr>
+<tr><td>PER_SSTX_P</td><td>4</td><td>J3.9, U19.1, U19.10, U2.3</td></tr>
+<tr><td>RXD0</td><td>2</td><td>U1.36, J7.3</td></tr>
+<tr><td>TXD0</td><td>2</td><td>U1.37, J7.2</td></tr>
+<tr><td>USB_OE_N</td><td>4</td><td>U2.2, U3.6, R4.1, U1.17</td></tr>
+<tr><td>USB_SEL</td><td>5</td><td>U2.9, U3.9, R3.1, U4.4, U1.12</td></tr>
+<tr><td>VBUS_A</td><td>6</td><td>J1.1, U4.6, C4.1, U6.1, R8.1, C23.1</td></tr>
+<tr><td>VBUS_AUX</td><td>7</td><td>J4.A4, J4.A9, J4.B4, J4.B9, U14.5, U8.1, C10.1</td></tr>
+<tr><td>VBUS_A_SENSE</td><td>3</td><td>R8.2, R9.1, U1.19</td></tr>
+<tr><td>VBUS_B</td><td>6</td><td>J2.1, U4.3, C5.1, U7.1, R10.1, C24.1</td></tr>
+<tr><td>VBUS_B_SENSE</td><td>3</td><td>R10.2, R11.1, U1.20</td></tr>
+<tr><td>VBUS_PERIPH</td><td>5</td><td>J3.1, U20.6, C7.1, C8.1, C9.1</td></tr>
+<tr><td>VBUS_PERIPH_RAW</td><td>4</td><td>U4.7, U4.2, U20.1, C6.1</td></tr>
+</table>
+<h2 id=checks>Automatic checks</h2><ul>
+<li><b class=ok>Nets with a single pin: none</b></li>
+<li>Parts outside every block: none</li>
+<li>Not assembled by JLC (no LCSC number): </li>
+<li>+3V3: 26 pins</li>
+<li>+5V_SYS: 16 pins</li>
+<li>GND: 101 pins</li>
+</ul></body></html>

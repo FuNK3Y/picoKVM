@@ -1,0 +1,5 @@
+# build output and downloaded tools (./build.sh recreates them)
+out/
+tools/
+.build.lock
+__pycache__/
