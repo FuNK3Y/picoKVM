@@ -168,10 +168,10 @@ select:
     on_value:
       - light.turn_on:
           id: board_led
-          <<: &input_color  # Input colors, as in config.py: A #007BFF, B #902A8D
-            red: !lambda "return i == 0 ? 0.0f : 0.565f;"
-            green: !lambda "return i == 0 ? 0.482f : 0.165f;"
-            blue: !lambda "return i == 0 ? 1.0f : 0.553f;"
+          <<: &input_color  # Input colors, as in config.py: A #FF8C00 (orange), B #3DBDE7 (blue)
+            red: !lambda "return i == 0 ? 1.0f : 0.239f;"
+            green: !lambda "return i == 0 ? 0.549f : 0.741f;"
+            blue: !lambda "return i == 0 ? 0.0f : 0.906f;"
             brightness: 20%
       - light.turn_on:
           id: key_led

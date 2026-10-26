@@ -8,7 +8,7 @@ from samsung_monitor import SamsungMonitor
 
 class Config:
     wireless_network = {}
-    inputs = {"A": {"color": "#007BFF", "name": "PC1"}, "B": {"color": "#902a8d", "name": "PC2"}}
+    inputs = {"A": {"color": "#FF8C00", "name": "PC1"}, "B": {"color": "#3DBDE7", "name": "PC2"}}  # Orange, blue
     led_idle_brightness = 0  # 0 turns the LEDs off after a switch; 0 < x <= 1 keeps the active input's color, dimmed
     admin_password = None  # Required, as HTTP Basic credentials (any user name), by the API calls that change the device
     update_repository = "FuNK3Y/picoKVM"  # GitHub repository whose latest release POST /api/update/latest installs
