@@ -199,14 +199,14 @@ Here is how to connect everything together:
 - Connect USB from the computers to the KVM
 - Connect keyboard & mouse to a USB switch - itself connected to the KVM
 - With the picoKVM board, connect its HDMI 1 / HDMI 2 ports to the monitors that should switch over DDC/CI (control only, the video still goes directly from the computers to the monitors)
-    - The primary monitor should be used as a USB hub (as shown in the schema). In the case of the G80SD it retains the capability to drive the smart features of the monitor with the keyboard & mouse
+    - The USB hub in the schema can be the primary monitor's built-in hub. In the case of the G80SD it retains the capability to drive the smart features of the monitor with the keyboard & mouse
 
 ### Schema
 ```mermaid
 graph LR
-    KB["Keyboard"] <--> |USB| MON
-    MOUSE["Mouse"] <--> |USB| MON
-    KVM <--> |USB| MON
+    KB["Keyboard"] <--> |USB| HUB["USB hub"]
+    MOUSE["Mouse"] <--> |USB| HUB
+    KVM <--> |USB| HUB
     PC1["Computer 1"] --> |Video| MON["Monitor"]
     PC2["Computer 2"] --> |Video| MON
     PC1 <--> |USB| KVM["picoKVM"]
@@ -214,6 +214,7 @@ graph LR
     KVM -.-> |"HDMI (DDC/CI only)"| MON
     style MON fill:#f9f,stroke:#333
     style KVM fill:#bbf,stroke:#333
+    style HUB fill:#ddd,stroke:#333
     style KB fill:#ddd,stroke:#333
     style MOUSE fill:#ddd,stroke:#333
     style PC1 fill:#ddd,stroke:#333
