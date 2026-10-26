@@ -26,6 +26,7 @@ class Updater:
     _RELEASE_ASSET = "firmware-ota.bin"  # .github/workflows/firmware.yml
     _GITHUB_TIMEOUT = 30  # s: for the release lookup
     _DOWNLOAD_TIMEOUT = 300  # s: for the whole download, connection included
+    _MAX_REDIRECTS = 3
 
     def __init__(self):
         self.version = self.image_version(self._read_header(Partition(Partition.RUNNING)))
@@ -81,10 +82,7 @@ class Updater:
         version = None
         received = filled = index = 0
         while received < size:
-            try:
-                data = await asyncio.wait_for(read(min(self._BLOCK_SIZE - filled, size - received)), self._READ_TIMEOUT)
-            except EOFError:  # aiohttp's responses read exactly
-                data = b""
+            data = await asyncio.wait_for(read(min(self._BLOCK_SIZE - filled, size - received)), self._READ_TIMEOUT)
             if not data:
                 raise ValueError(f"Image cut off after {received} of {size} bytes")
             view[filled : filled + len(data)] = data
@@ -130,19 +128,45 @@ class Updater:
 
     async def install_release(self, release):
         """Downloads and installs a release, as given by latest_release(). Returns its version."""
-        import aiohttp
-
         if release["version"] == self.version:
             raise ValueError(f"Already running {self.version}")
 
         async def download():
-            async with aiohttp.ClientSession() as session:
-                async with session.get(release["url"]) as response:  # Redirected to GitHub's storage
-                    if response.status != 200:
-                        raise OSError(f"The download of {release['url']} answered {response.status}")
-                    return await self.install(response.read, release["size"], release["sha256"])
+            stream = await self._get(release["url"])
+            try:
+                return await self.install(stream.read, release["size"], release["sha256"])
+            finally:
+                await stream.aclose()
 
         return await asyncio.wait_for(download(), self._DOWNLOAD_TIMEOUT)
+
+    async def _get(self, url):
+        """GETs url, following redirects, and returns the stream of the response, at its body.
+
+        Not aiohttp's ClientSession.get(): following a redirect, it sends the first host's Host header to the next one
+        (GitHub's release downloads redirect to its storage, which refuses that).
+        """
+        import aiohttp
+
+        session = aiohttp.ClientSession()
+        for _ in range(self._MAX_REDIRECTS + 1):
+            stream = await session.request_raw("GET", url, headers={"User-Agent": "picoKVM", "Connection": "close"})  # Its own headers: request_raw() adds the Host
+            status = int((await stream.readline()).split(None, 2)[1])
+            location = None
+            while True:
+                line = await stream.readline()
+                if line in (b"\r\n", b"\n", b""):
+                    break
+                name, _, value = line.decode().partition(":")
+                if name.strip().lower() == "location":
+                    location = value.strip()
+            if status == 200:
+                return stream
+            await stream.aclose()
+            if status not in (301, 302, 303, 307, 308) or not location:
+                raise OSError(f"The download of {url} answered {status}")
+            url = location
+        raise OSError("The download redirected too many times")
 
     async def restart(self):
         await asyncio.sleep(1)  # Lets the response go out

@@ -19,7 +19,7 @@ content = r"""<!DOCTYPE html>
             text-align: center;
         }
 
-        .firmware {
+        .settings {
             margin-top: 20px;
         }
 
@@ -73,15 +73,7 @@ content = r"""<!DOCTYPE html>
                 document.querySelector('#error').innerText = 'Switch failed: ' + data.message;
         }
 
-        async function showVersion() {
-            const response = await fetch('/api/update');
-            document.querySelector('#version').innerText = 'Firmware ' + (await response.json()).version;
-        }
-
-        window.onload = () => {
-            listen();
-            showVersion();
-        };
+        window.onload = listen;
     </script>
 </head>
 
@@ -89,8 +81,8 @@ content = r"""<!DOCTYPE html>
     <div class="button-container">
         <button class="api-button" onclick="toggle()">Loading...</button>
         <div id="error" class="error"></div>
-        <div class="firmware muted">
-            <span id="version"></span> &middot; <a href="/config">Settings</a>
+        <div class="settings muted">
+            <a href="/config">Settings</a>
         </div>
     </div>
 </body>

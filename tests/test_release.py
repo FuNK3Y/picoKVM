@@ -7,6 +7,7 @@ from updater import Updater
 
 API = "https://api.github.com/repos/owner/repo/releases/latest"
 URL = "https://github.com/owner/repo/releases/download/v2.0.0/firmware-ota.bin"
+STORAGE = "https://objects.githubusercontent.com/release-asset?signature=1"  # Where GitHub redirects the download
 IMAGE = image("v2.0.0", 9000)
 
 
@@ -16,7 +17,8 @@ def serve(tag="v2.0.0", digest=True, name="firmware-ota.bin", data=IMAGE, size=N
         asset["digest"] = "sha256:" + hashlib.sha256(IMAGE).hexdigest()
     release = {"tag_name": tag, "assets": [{"name": "firmware.bin", "browser_download_url": "elsewhere", "size": 1}, asset]}
     ClientSession.served[API] = (200, json.dumps(release).encode())
-    ClientSession.served[URL] = (200, data)
+    ClientSession.served[URL] = (302, b"", {"Location": STORAGE})
+    ClientSession.served[STORAGE] = (200, data, {"Content-Type": "application/octet-stream", "Content-Length": len(data)})
 
 
 class ReleaseTest(TestCase):
@@ -24,6 +26,25 @@ class ReleaseTest(TestCase):
         serve()
         release = await Updater().latest_release("owner/repo")
         self.assertEqual(release, {"version": "v2.0.0", "url": URL, "size": len(IMAGE), "sha256": hashlib.sha256(IMAGE).hexdigest()})
+
+    async def test_follows_the_redirect_with_its_own_headers(self):
+        serve()
+        updater = Updater()
+        await updater.install_release(await updater.latest_release("owner/repo"))
+        downloads = [(url, kwargs["headers"]) for _, url, kwargs in ClientSession.requests]
+        self.assertEqual([url for url, _ in downloads], [URL, STORAGE])
+        for _, headers in downloads:  # aiohttp's request_raw() adds the Host of each URL
+            self.assertNotIn("Host", headers)
+
+    async def test_redirect_errors(self):
+        serve()
+        ClientSession.served[STORAGE] = (302, b"", {"Location": URL})  # A loop
+        updater = Updater()
+        with self.assertRaisesRegex(OSError, "redirected too many times"):
+            await updater.install_release(await updater.latest_release("owner/repo"))
+        ClientSession.served[URL] = (302, b"")  # No Location
+        with self.assertRaisesRegex(OSError, "answered 302"):
+            await updater.install_release(await updater.latest_release("owner/repo"))
 
     async def test_installs_with_or_without_digest(self):
         for digest in (True, False):
