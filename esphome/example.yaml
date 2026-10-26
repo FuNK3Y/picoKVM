@@ -1,0 +1,35 @@
+# Your picoKVM: the board's core package plus your own settings and additions.
+# First flash over the AUX USB-C:  esphome run example.yaml   (then OTA)
+
+packages:
+  picokvm: github://FuNK3Y/picoKVM/esphome/picokvm.yaml@main
+  # Working copy instead:  picokvm: !include picokvm.yaml
+
+substitutions:
+  name: picokvm-desk
+  inputs:
+    a: Work laptop
+    b: Gaming PC
+  monitors: 2  # 1: a single monitor, on HDMI 1
+
+logger:
+
+api:
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+# Each monitor's input values are set at runtime: Home Assistant > device > Configuration.
+
+# Anything else the board should do goes here, e.g. hook onto the core select:
+# select:
+#   - id: !extend kvm_input
+#     on_value:
+#       - homeassistant.action:
+#           action: script.desk_input_changed
+#           data:
+#             input: !lambda "return x;"

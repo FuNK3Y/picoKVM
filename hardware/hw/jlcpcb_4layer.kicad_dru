@@ -1,0 +1,64 @@
+(version 1)
+# JLCPCB 4-layer manufacturing limits, checked by every DRC run.
+# Values from https://jlcpcb.com/capabilities/pcb-capabilities (multilayer,
+# 1 oz outer / 0.5 oz inner), checked 2026-10-02.  Adapted from the community
+# set at github.com/labtroll/KiCad-DesignRules, whose JLCPCB file uses the
+# stricter 1-2 layer numbers.
+
+(rule "JLC: track width"
+	(condition "A.Type == 'track'")
+	(constraint track_width (min 0.09mm)))
+
+(rule "JLC: track to track"
+	(condition "A.Type == 'track' && B.Type == A.Type")
+	(constraint clearance (min 0.09mm)))
+
+(rule "JLC: pad to track"
+	(condition "A.Type == 'pad' && B.Type == 'track' && A.Net != B.Net")
+	(constraint clearance (min 0.1mm)))
+
+(rule "JLC: SMD pad to pad"
+	(condition "A.Pad_Type == 'SMD' && B.Pad_Type == 'SMD' && A.Net != B.Net")
+	(constraint clearance (min 0.15mm)))
+
+(rule "JLC: hole size (free tier)"
+	# JLC can drill 0.15 mm, but anything under 0.3 mm costs extra
+	(constraint hole_size (min 0.3mm) (max 6.3mm)))
+
+(rule "JLC: NPTH hole size"
+	(condition "!A.isPlated()")
+	(constraint hole_size (min 0.5mm)))
+
+(rule "JLC: via annular ring"
+	(condition "A.Type == 'via'")
+	(constraint annular_width (min 0.07mm)))
+
+(rule "JLC: PTH annular ring"
+	(condition "A.Type == 'pad' && A.isPlated()")
+	(constraint annular_width (min 0.15mm)))
+
+(rule "JLC: via hole to copper"
+	(condition "A.Type == 'via' && A.Net != B.Net")
+	(constraint hole_clearance (min 0.2mm)))
+
+(rule "JLC: PTH hole to track"
+	(condition "A.Type == 'pad' && A.isPlated() && B.Type == 'track' && A.Net != B.Net")
+	(constraint hole_clearance (min 0.28mm)))
+
+(rule "JLC: NPTH hole to track"
+	(condition "!A.isPlated() && B.Type == 'track'")
+	(constraint hole_clearance (min 0.2mm)))
+
+(rule "JLC: via hole to via hole"
+	(condition "A.Type == 'via' && B.Type == 'via'")
+	(constraint hole_to_hole (min 0.2mm)))
+
+(rule "JLC: pad hole to hole"
+	(condition "A.Type == 'pad' || B.Type == 'pad'")
+	(constraint hole_to_hole (min 0.45mm)))
+
+(rule "JLC: silkscreen text"
+	(condition "(A.Type == 'Text' || A.Type == 'Text Box') && (A.Layer == 'F.Silkscreen' || A.Layer == 'B.Silkscreen')")
+	(constraint text_thickness (min 0.15mm))
+	(constraint text_height (min 1mm)))
+

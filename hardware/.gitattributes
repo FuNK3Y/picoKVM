@@ -1,0 +1,2 @@
+# released order files: keep byte-identical to what was sent to the fab
+revA/jlcpcb/** -text
