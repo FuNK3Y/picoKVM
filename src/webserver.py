@@ -88,12 +88,15 @@ class WebServer:
         if headers.get("expect", "").lower() == "100-continue":  # curl asks before sending a large body
             writer.write("HTTP/1.1 100 Continue\r\n\r\n")
             await writer.drain()
-        await self.install_update(writer, reader.read, size)
+        await self.install_update(writer, lambda: self.updater.install(reader.read, size))
 
-    async def install_update(self, writer, read, size, sha256=None):
+    async def install_latest_release(self):
+        return await self.updater.install_release(await self.updater.latest_release(Config.update_repository))
+
+    async def install_update(self, writer, install):
         try:
             async with self.controller.lock:  # No switch while the flash is being written
-                version = await self.updater.install(read, size, sha256)
+                version = await install()
         except ValueError as e:
             self.write_response(writer, "400 Bad Request", json.dumps({"message": str(e)}))
         except Exception as e:
@@ -113,6 +116,9 @@ class WebServer:
                     self.write_response(writer, "500 Internal Server Error", json.dumps({"message": str(e)}))
             elif re.match(r"^/api/update/?$", path):
                 await self.upload_update(reader, writer, headers)
+            elif re.match(r"^/api/update/latest/?$", path):
+                if self.authorized(writer, headers):
+                    await self.install_update(writer, self.install_latest_release)
             else:
                 self.write_response(writer, "404 Not Found", json.dumps({"message": "404 Not Found"}))
         elif method == "GET":
@@ -120,6 +126,12 @@ class WebServer:
                 self.write_response(writer, "200 OK", json.dumps({"active_input": {self.controller.selected_input: Config.inputs[self.controller.selected_input]}}))
             elif re.match(r"^/api/update/?$", path):
                 self.write_response(writer, "200 OK", json.dumps({"version": self.updater.version, "status": self.updater.status}))
+            elif re.match(r"^/api/update/latest/?$", path):
+                try:
+                    latest = (await self.updater.latest_release(Config.update_repository))["version"]
+                    self.write_response(writer, "200 OK", json.dumps({"version": self.updater.version, "latest": latest, "update_available": latest != self.updater.version}))
+                except Exception as e:
+                    self.write_response(writer, "502 Bad Gateway", json.dumps({"message": str(e)}))
             else:
                 self.write_response(writer, "404 Not Found", json.dumps({"message": "404 Not Found"}))
         else:

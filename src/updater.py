@@ -23,6 +23,9 @@ class Updater:
     _TRIAL_TIMEOUT = 120  # s: for the new firmware to come up healthy
     _BLOCK_SIZE = 4096  # Flash erase unit
     _READ_TIMEOUT = 30  # s: a stalled upload or download must not hold the KVM forever
+    _RELEASE_ASSET = "firmware-ota.bin"  # .github/workflows/firmware.yml
+    _GITHUB_TIMEOUT = 30  # s: for the release lookup
+    _DOWNLOAD_TIMEOUT = 300  # s: for the whole download, connection included
 
     def __init__(self):
         self.version = self.image_version(self._read_header(Partition(Partition.RUNNING)))
@@ -76,7 +79,10 @@ class Updater:
         version = None
         received = filled = index = 0
         while received < size:
-            data = await asyncio.wait_for(read(min(self._BLOCK_SIZE - filled, size - received)), self._READ_TIMEOUT)
+            try:
+                data = await asyncio.wait_for(read(min(self._BLOCK_SIZE - filled, size - received)), self._READ_TIMEOUT)
+            except EOFError:  # aiohttp's responses read exactly
+                data = b""
             if not data:
                 raise ValueError(f"Image cut off after {received} of {size} bytes")
             view[filled : filled + len(data)] = data
@@ -100,6 +106,41 @@ class Updater:
             os.remove(self._STATE_FILE)
             raise ValueError(f"Image rejected: {e}")
         return version
+
+    async def latest_release(self, repository):
+        """The latest GitHub release of repository: its version (tag), and its application image's URL, size and SHA-256."""
+        import aiohttp
+
+        async def get():
+            async with aiohttp.ClientSession(headers={"Accept": "application/vnd.github+json"}) as session:
+                async with session.get(f"https://api.github.com/repos/{repository}/releases/latest") as response:
+                    if response.status != 200:
+                        raise OSError(f"GitHub answered {response.status} for the latest release of {repository}")
+                    return await response.json()
+
+        release = await asyncio.wait_for(get(), self._GITHUB_TIMEOUT)
+        for asset in release["assets"]:
+            if asset["name"] == self._RELEASE_ASSET:
+                digest = asset.get("digest") or ""  # "sha256:<hex>", when GitHub gives it
+                sha256 = digest[len("sha256:") :] if digest.startswith("sha256:") else None
+                return {"version": release["tag_name"], "url": asset["browser_download_url"], "size": asset["size"], "sha256": sha256}
+        raise OSError(f"The latest release of {repository} has no {self._RELEASE_ASSET}")
+
+    async def install_release(self, release):
+        """Downloads and installs a release, as given by latest_release(). Returns its version."""
+        import aiohttp
+
+        if release["version"] == self.version:
+            raise ValueError(f"Already running {self.version}")
+
+        async def download():
+            async with aiohttp.ClientSession() as session:
+                async with session.get(release["url"]) as response:  # Redirected to GitHub's storage
+                    if response.status != 200:
+                        raise OSError(f"The download of {release['url']} answered {response.status}")
+                    return await self.install(response.read, release["size"], release["sha256"])
+
+        return await asyncio.wait_for(download(), self._DOWNLOAD_TIMEOUT)
 
     async def restart(self):
         await asyncio.sleep(1)  # Lets the response go out

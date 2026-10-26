@@ -81,6 +81,7 @@ Defaults are the picoKVM board's pins (as in `config.example.json`).
 | `peripheral_fault_gpio_pin` | board only: peripheral over-current / over-temperature flag (reported in `/metrics`) |
 | `vbus_sense_gpio_pins` | board only: `{"A": pin, "B": pin}`, high while that computer powers its USB port (reported in `/metrics`) |
 | `admin_password` | required, as HTTP Basic credentials with any user name, by the API calls that change the device ([updates](#updates)); while empty, they are refused |
+| `update_repository` | GitHub repository whose latest release the device updates to (default `FuNK3Y/picoKVM`) |
 
 Then, you need to configure your monitor. On the picoKVM board, DDC/CI (below) needs no network. Otherwise, either make sure that IP remote is enabled *(Connection > Network > Expert Settings)* or configure SmartThings
 
@@ -236,7 +237,7 @@ The dashed link is the picoKVM board's HDMI port: it carries only DDC/CI to swit
 On top of the physical button, there are two ways to operate the KVM. You need to know the `$hostname` of the device to connect (default value is picokvm)
 
 ### Web page
-Simply connect to `http://$hostname.local` and press the only button.
+Simply connect to `http://$hostname.local` and press the button. Below it are the firmware version and its [updates](#updates).
 
 ### API
 Issue a `POST` request to `http://$hostname.local/api/active_input/A` or `B`.
@@ -255,7 +256,13 @@ Pressing the button for more than 10 seconds will reset the device
 ## Updates
 The firmware updates itself over the network, MicroPython included. Set `admin_password` in `config.json` first: updates are refused without it.
 
-Upload `firmware-ota.bin`, from a [release](https://github.com/FuNK3Y/picoKVM/releases) or from the artifact of any [GitHub Actions run](https://github.com/FuNK3Y/picoKVM/actions/workflows/firmware.yml):
+The simplest is from the web page: *Check for updates* looks up the latest [release](https://github.com/FuNK3Y/picoKVM/releases), and *Update to …* installs it (the browser asks for the password). The same through the API:
+```sh
+curl http://$hostname.local/api/update/latest                                     # {"version": ..., "latest": ..., "update_available": ...}
+curl -u admin:<admin_password> -X POST http://$hostname.local/api/update/latest   # downloads and installs it
+```
+
+Or upload `firmware-ota.bin`, from a [release](https://github.com/FuNK3Y/picoKVM/releases) or from the artifact of any [GitHub Actions run](https://github.com/FuNK3Y/picoKVM/actions/workflows/firmware.yml):
 ```sh
 curl -u admin:<admin_password> --data-binary @firmware-ota.bin http://$hostname.local/api/update
 ```
@@ -268,7 +275,7 @@ The first boot of an update is a trial: the update is kept once the device is ba
 
 Updates cannot change the bootloader or the flash layout: that, like recovering a board, takes flashing `firmware.bin` over USB ([Software setup](#software-setup)).
 
-The API is plain HTTP: anyone able to watch your network traffic can read the password as it is sent.
+The API is plain HTTP: anyone able to watch your network traffic can read the password as it is sent. Likewise, the device downloads releases without checking GitHub's certificate (MicroPython has no certificate store); the SHA-256 GitHub publishes for the image only guards against a corrupted download.
 
 ## Building the firmware
 [`firmware/build.sh`](firmware/build.sh) builds both images into `firmware/build/`: MicroPython's generic ESP32-S3 configuration, with two application slots and the content of `src/` frozen in (the board definition is [`firmware/PICOKVM`](firmware/PICOKVM)). It needs [ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32s3/get-started/) v5.5.2:
