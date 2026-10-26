@@ -196,7 +196,6 @@ module("esp32", Partition=Partition, idf_heap_info=lambda kind: [(1000, 500, 400
 module("network", WLAN=WLAN, STA_IF=WLAN.STA_IF, hostname=lambda *args: "picokvm")
 module("neopixel", NeoPixel=NeoPixel)
 module("aiohttp", ClientSession=ClientSession)
-sys.modules["ubinascii"] = __import__("binascii")
 gc.mem_free = lambda: 100000
 gc.mem_alloc = lambda: 50000
 time.ticks_ms = lambda: int(time.monotonic() * 1000)

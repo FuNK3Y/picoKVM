@@ -17,11 +17,13 @@ class Config:
     _configFile = "config.json"
     _lastSaved = None
 
+    @staticmethod
     def _serialize():
         attributes = {key: getattr(Config, key) for key in Config._settings}
         attributes["devices"] = [{"type": type(device).__name__, "data": device.to_dict()} for device in Config.devices]
         return json.dumps(attributes)
 
+    @staticmethod
     def save():
         content = Config._serialize()
         if content == Config._lastSaved:  # Nothing changed, do not wear out the flash on every switch
@@ -36,15 +38,12 @@ class Config:
             os.rename(temp_file, Config._configFile)
         Config._lastSaved = content
 
+    @staticmethod
     def load():
         with open(Config._configFile, "r") as file:
             content = json.loads(file.read())
         for key in Config._settings:
             if key in content:
                 setattr(Config, key, content[key])
-        setattr(
-            Config,
-            "devices",
-            [globals()[device["type"]].from_dict(device["data"]) for device in content["devices"]],
-        )
+        Config.devices = [globals()[device["type"]].from_dict(device["data"]) for device in content["devices"]]
         Config._lastSaved = Config._serialize()

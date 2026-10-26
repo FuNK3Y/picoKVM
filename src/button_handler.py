@@ -5,7 +5,7 @@ import sys
 
 class ButtonHandler:
     def __init__(self, pin, callback, debounce=0.04):
-        self._downCounter = 0
+        self._down_count = 0
         self.pin = machine.Pin(pin, machine.Pin.IN, machine.Pin.PULL_UP)
         self.debounce = debounce
         self.callback = callback
@@ -13,16 +13,16 @@ class ButtonHandler:
 
     async def poll(self):
         while True:
-            if self._downCounter >= self.reset_counter:
+            if self._down_count >= self.reset_counter:
                 print("Resetting...")
                 machine.reset()
-            elif self._downCounter > 0 and self.pin.value() == 1:
-                self._downCounter = 0
+            elif self._down_count > 0 and self.pin.value() == 1:
+                self._down_count = 0
                 try:
                     await self.callback()
                 except Exception as e:
                     print("Uncaught exception in callback:", e)
                     sys.print_exception(e)
             elif self.pin.value() == 0:
-                self._downCounter += 1
+                self._down_count += 1
             await asyncio.sleep(self.debounce)
