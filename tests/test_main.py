@@ -44,6 +44,21 @@ class MainTest(TestCase):
         self.assertEqual(Pin.levels[board.USB_ENABLE], 0)  # Controller up
         self.assertEqual(WDT.instances, [])  # Not a trial
 
+    async def test_soft_reboot(self):
+        WLAN.connected = False
+        WLAN.connecting = True  # An attempt from before the soft reboot, still in progress
+        await self.start()
+        self.assertEqual(WLAN.connects, 1)
+        await self.asyncTearDown()
+        with patch.object(WLAN, "disconnect", side_effect=OSError("not started")):  # Nothing to end
+            WLAN.connecting = False
+            await self.start()
+        self.assertEqual(WLAN.connects, 2)
+        await self.asyncTearDown()
+        WLAN.connected = True  # Still connected from before: kept
+        await self.start()
+        self.assertEqual(WLAN.connects, 2)
+
     async def test_confirms_an_update_once_on_the_network(self):
         data = image("v2.0.0")
         await Updater().install(reader(data), len(data))
