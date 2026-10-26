@@ -13,13 +13,9 @@ class Controller:
 
     def __init__(self):
         self._usb_select = Pin(Config.usb_gpio_pin, Pin.OUT)
-        if Config.usb_enable_gpio_pin is not None:  # picoKVM board: the data switches are off until enabled
-            Pin(Config.usb_enable_gpio_pin, Pin.OUT, value=0)
-        self._peripheral_power = None
-        if Config.peripheral_power_gpio_pin is not None:  # picoKVM board: the peripheral port is unpowered at reset
-            self._peripheral_power = Pin(Config.peripheral_power_gpio_pin, Pin.OUT, value=1)
-        pins = Config.led_gpio_pin if isinstance(Config.led_gpio_pin, list) else [Config.led_gpio_pin]
-        self._leds = [neopixel.NeoPixel(Pin(pin, Pin.OUT), 1) for pin in pins]
+        Pin(Config.usb_enable_gpio_pin, Pin.OUT, value=0)  # The data switches are off until enabled
+        self._peripheral_power = Pin(Config.peripheral_power_gpio_pin, Pin.OUT, value=1)  # The peripheral port is unpowered at reset
+        self._leds = [neopixel.NeoPixel(Pin(pin, Pin.OUT), 1) for pin in Config.led_gpio_pin]
         self._show_idle()
 
     @property
@@ -41,10 +37,7 @@ class Controller:
     def _select_usb(self, input):
         level = 0 if input == "A" else 1
         if self._usb_select.value() == level:
-            return
-        if self._peripheral_power is None:
-            self._usb_select.value(level)
-            return
+            return False
         self._peripheral_power.value(0)  # Power and data move together, so the peripheral never sees a half-switched port
         self._usb_select.value(level)
         return True  # Caller restores power after _peripheral_off_time

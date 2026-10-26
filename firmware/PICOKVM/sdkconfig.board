@@ -1,4 +1,4 @@
-# 8 MiB flash: ESP32-S3-WROOM-1-N8R2 on the picoKVM board, ESP32-S3FN8 on the AtomS3 Lite
+# 8 MiB flash: the picoKVM board's ESP32-S3-WROOM-1-N8R2
 CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
 
 # Two 2.4 MiB application slots (ota_0, ota_1): an update is written to the slot not running.

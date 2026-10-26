@@ -14,52 +14,34 @@ The networking enables some unique features:
 - You can control the KVM from any device on the same network (phone, tablet, computer, ...)
 
 ## How does it works
-The KVM switches the USB devices between two computers and tells the monitors to change input at the same time. Monitors can be driven over the network (Samsung remote API, SmartThings or any HTTP API) or, with the picoKVM board, directly over HDMI DDC/CI.
+The KVM switches the USB devices between two computers and tells the monitors to change input at the same time. Monitors are driven directly over HDMI DDC/CI by the board, or over the network (Samsung remote API, SmartThings or any HTTP API).
 
 With the Samsung remote API, the KVM uses the Samsung remote API (https://samsungtv:8002/api/v2/) to inject key presses in order to change inputs. As on my monitors (G80SD & M70d) there is sadly no key directly mapped to inputs (like `KEY_DISPLAYPORT`, `KEY_HDMI1`). I had to build a sequence of key presses starting from the home screen. The interface is snappy enough to smoothen up this downside.
 
 Another alternative would be to use the [SmartThings REST API](https://github.com/ollo69/ha-samsungtv-smart/issues/274#issuecomment-2597627685) - as this API allows for direct input selection. 
 
 ## Hardware setup
+The firmware runs on the picoKVM board only. The original build (M5Stack AtomS3 Lite + USB multiplexer) is not supported anymore: the last version supporting it is [5d5997c](https://github.com/FuNK3Y/picoKVM/tree/5d5997c), installed by copying the files to the board.
 
-### picoKVM board (recommended)
 A dedicated board, designed in this repository ([`hardware/`](hardware/README.md)): an ESP32-S3 module, a USB 3.0 switch (two USB-B inputs for the computers, one USB-A port for the peripherals, including peripheral power switching and current limiting), two HDMI ports carrying DDC/CI only (no video) to switch monitor inputs, an RGB status LED, and a Grove port for an [M5Stack mechanical key unit](https://shop.m5stack.com/products/mechanical-key-button-unit) used as the switch button.
 
 ![picoKVM board](hardware/revA/img/iso.png)
 
 `config.example.json` is set up for this board (pin map in [hardware/README.md](hardware/README.md#firmware-contract)). Connect an HDMI cable from each HDMI port to a monitor whose input should follow the KVM, and enable DDC/CI in the monitor's menu.
 
-### M5Stack AtomS3 Lite + USB multiplexer
-The original build, still supported:
-- [m5stack AtomS3 Lite](https://shop.m5stack.com/products/atoms3-lite-esp32s3-dev-kit)
-- [A USB multiplexer](https://thepihut.com/products/bidirectional-usb-3-multiplexer)
-
-They need to be wired together (Ground, Signal over GPIO (`G1` by default))
-
-You can add a physical button, I went with [this one](https://shop.m5stack.com/products/mechanical-key-button-unit). Pick a GPIO port for the LED and the button and update the config accordingly. The defaults target the picoKVM board, so set the Atom's pins and disable the board-only settings in `config.json`:
-```json
-"usb_gpio_pin": "G1",
-"button_gpio_pin": "BUTTON",
-"led_gpio_pin": "LED_RGB",
-"usb_enable_gpio_pin": null,
-"peripheral_power_gpio_pin": null,
-"peripheral_fault_gpio_pin": null,
-"vbus_sense_gpio_pins": null
-```
-
 ## Software setup
-The firmware is MicroPython with this repository's code (`src/`) built in. The same image runs on the picoKVM board and on the AtomS3 Lite (both have 8 MB of flash). Each [release](https://github.com/FuNK3Y/picoKVM/releases) has two files:
+The firmware is MicroPython with this repository's code (`src/`) built in. Each [release](https://github.com/FuNK3Y/picoKVM/releases) has two files:
 - `firmware.bin`: the full image, flashed over USB;
 - `firmware-ota.bin`: the application alone, for [updates](#updates) over the network.
 
-Flash `firmware.bin` over USB (on the picoKVM board, the AUX / FLASH USB-C port: hold BOOT, press RESET, release BOOT):
+Flash `firmware.bin` over the board's AUX / FLASH USB-C port (hold BOOT, press RESET, release BOOT):
 ```sh
 esptool.py erase_flash
 esptool.py write_flash 0 firmware.bin
 ```
 Erase first: the flash layout (two application slots, for updates) is not the plain MicroPython one, and a leftover filesystem would not mount. This also wipes `config.json`: coming from an install that copied the files to the board, back it up first with `mpremote cp :config.json config.json`. The USB port is the MicroPython REPL afterwards.
 
-Copy `config.example.json` to `config.json` and adjust it with your settings. You need to configure at least your Wi-Fi credentials and the GPIO pin you connected the signal cable from the USB multiplexer to. Upload it to the board and restart it, e.g. with [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) (or [Thonny](https://thonny.org/)'s file view):
+Copy `config.example.json` to `config.json` and adjust it with your settings. You need to configure at least your Wi-Fi credentials and your monitors. Upload it to the board and restart it, e.g. with [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) (or [Thonny](https://thonny.org/)'s file view):
 ```sh
 mpremote cp config.json :config.json + reset
 ```
@@ -68,24 +50,24 @@ mpremote cp config.json :config.json + reset
 
 ### Settings
 
-Defaults are the picoKVM board's pins (as in `config.example.json`).
+The pins are the board's (as in `config.example.json`): leave them as they are.
 
 | key | what |
 |---|---|
 | `usb_gpio_pin` | USB select output: low = input `A`, high = input `B` |
 | `button_gpio_pin` | switch button, active low |
-| `led_gpio_pin` | SK6812/WS2812 data pin, or a list of pins (board: on-board LED and Grove key LED) |
+| `led_gpio_pin` | SK6812/WS2812 data pins: on-board LED and Grove key LED |
 | `led_idle_brightness` | `0`: LEDs off after a switch; `0` to `1`: keep showing the active input's color at that brightness |
-| `usb_enable_gpio_pin` | board only: enables the USB data switches (active low, off until the firmware starts) |
-| `peripheral_power_gpio_pin` | board only: peripheral port power; cycled on each switch so the peripheral re-enumerates on the new computer |
-| `peripheral_fault_gpio_pin` | board only: peripheral over-current / over-temperature flag (reported in `/metrics`) |
-| `vbus_sense_gpio_pins` | board only: `{"A": pin, "B": pin}`, high while that computer powers its USB port (reported in `/metrics`) |
+| `usb_enable_gpio_pin` | enables the USB data switches (active low, off until the firmware starts) |
+| `peripheral_power_gpio_pin` | peripheral port power; cycled on each switch so the peripheral re-enumerates on the new computer |
+| `peripheral_fault_gpio_pin` | peripheral over-current / over-temperature flag (reported in `/metrics`) |
+| `vbus_sense_gpio_pins` | `{"A": pin, "B": pin}`, high while that computer powers its USB port (reported in `/metrics`) |
 | `admin_password` | required, as HTTP Basic credentials with any user name, by the API calls that change the device ([updates](#updates)); while empty, they are refused |
 | `update_repository` | GitHub repository whose latest release the device updates to (default `FuNK3Y/picoKVM`) |
 
-Then, you need to configure your monitor. On the picoKVM board, DDC/CI (below) needs no network. Otherwise, either make sure that IP remote is enabled *(Connection > Network > Expert Settings)* or configure SmartThings
+Then, you need to configure your monitor. DDC/CI (below) needs no network. Otherwise, either make sure that IP remote is enabled *(Connection > Network > Expert Settings)* or configure SmartThings
 
-### DDC/CI (picoKVM board)
+### DDC/CI
 Each HDMI port of the board is a `DdcMonitor` device: `sda_gpio_pin` / `scl_gpio_pin` are `1` / `2` for HDMI 1 and `4` / `5` for HDMI 2. `inputs` maps `A` and `B` to the VESA MCCS value of the monitor's input source (VCP `0x60`): commonly `15` (DisplayPort 1), `16` (DisplayPort 2), `17` (HDMI 1), `18` (HDMI 2). Some monitors use their own values: read VCP `0x60` with a DDC tool (`ddcutil getvcp 60` on Linux, *ControlMyMonitor* on Windows) while each input is active. `power_on` also sends power-on (VCP `0xD6`) first, for monitors that keep DDC/CI alive in standby.
 
 ```json
@@ -180,7 +162,7 @@ I did not try it, but creating a device of type `GenericDevice` with [this paylo
 }
 ```
 
-### ESPHome (picoKVM board)
+### ESPHome
 The board can run [ESPHome](https://esphome.io) instead of this firmware, for a native Home Assistant integration. [esphome/picokvm.yaml](esphome/picokvm.yaml) is the board's core logic as an ESPHome package, built from stock components only:
 - the `Input` select moves the USB peripherals, power-cycling the peripheral port as the firmware does, and switches the monitors over DDC/CI (an `i2c_device` per HDMI port and a few-line lambda that sends VCP 0x60);
 - the button cycles the inputs, and the LEDs show the active input;
@@ -209,8 +191,8 @@ Add anything else the board should do in the same file; `!extend kvm_input` hook
 Here is how to connect everything together:
 - Connect computers directly to the monitors
 - Connect USB from the computers to the KVM
-- Connect keyboard & mouse to a USB switch - itself connected to the KVM
-- With the picoKVM board, connect its HDMI 1 / HDMI 2 ports to the monitors that should switch over DDC/CI (control only, the video still goes directly from the computers to the monitors)
+- Connect keyboard & mouse to a USB hub - itself connected to the KVM
+- Connect the board's HDMI 1 / HDMI 2 ports to the monitors that should switch over DDC/CI (control only, the video still goes directly from the computers to the monitors)
     - The USB hub in the schema can be the primary monitor's built-in hub. In the case of the G80SD it retains the capability to drive the smart features of the monitor with the keyboard & mouse
 
 ### Schema
@@ -251,7 +233,7 @@ Invoke-RestMethod -Method POST "http://$hostname.local/api/active_input/A"
 
 ### Troubleshooting
 Pressing the button for more than 10 seconds will reset the device
-`/metrics` provide memory related information and wifi signal strength (plus, on the picoKVM board, which computers power their USB port and the peripheral fault flag). It can be ingested by prometheus
+`/metrics` provide memory related information and wifi signal strength (plus which computers power their USB port, and the peripheral fault flag). It can be ingested by prometheus
 
 ## Updates
 The firmware updates itself over the network, MicroPython included. Set `admin_password` in `config.json` first: updates are refused without it.

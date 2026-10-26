@@ -1,5 +1,5 @@
 # picoKVM firmware: MicroPython's generic ESP32-S3 build, with two application slots for over-the-air updates
-# and the application frozen in. Runs on the picoKVM board and on the M5Stack AtomS3 Lite (8 MiB flash both).
+# and the application frozen in, for the picoKVM board (hardware/).
 include(boards/mpconfigboard_esp32s3_common.cmake)
 
 list(APPEND SDKCONFIG_DEFAULTS

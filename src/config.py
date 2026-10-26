@@ -8,12 +8,11 @@ from samsung_monitor import SamsungMonitor
 
 class Config:
     wireless_network = {}
-    # Defaults: picoKVM board (hardware/README.md). An AtomS3 setup sets its own pins and null for the board-only ones
+    # The picoKVM board's pins (hardware/README.md)
     usb_gpio_pin = 8  # USB select: low = input A, high = input B
     button_gpio_pin = 13
-    led_gpio_pin = [14, 17]  # One pin, or a list of pins driving one SK6812/WS2812 each (board: on-board LED, Grove key)
+    led_gpio_pin = [14, 17]  # One SK6812/WS2812 each: on-board LED, Grove key
     led_idle_brightness = 0  # 0 turns the LEDs off after a switch; 0 < x <= 1 keeps the active input's color, dimmed
-    # picoKVM board only: set to null when the hardware has no such signal
     usb_enable_gpio_pin = 9  # Active low: enables the USB data switches
     peripheral_power_gpio_pin = 10  # Active high: powers the peripheral port, cycled on each switch
     peripheral_fault_gpio_pin = 16  # Active low: peripheral port over-current / over-temperature
