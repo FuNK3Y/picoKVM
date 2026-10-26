@@ -150,6 +150,32 @@ class WebServerTest(TestCase):
         status, _, _ = await self.request("GET / HTTP/1.1", b"\xff\r\n\r\n")  # Undecodable header: the connection is dropped
         self.assertEqual(status, "")
 
+    async def test_config(self):
+        self.assertEqual((await self.request("GET /api/config HTTP/1.1\r\n"))[0], "HTTP/1.1 401 Unauthorized")
+        status, _, content = await self.request("GET /api/config HTTP/1.1\r\n" + credentials("secret"))
+        self.assertEqual(status, "HTTP/1.1 200 OK")
+        self.assertEqual(content, Config.public())
+
+        def post(body):
+            return self.request(f"POST /api/config HTTP/1.1\r\nContent-Length: {len(body)}\r\n" + credentials("secret"), body)
+
+        from test_config import settings
+
+        Config.wireless_network = {"SSID": "home", "hostname": "picokvm", "password": "wifi"}  # As settings() has it
+        status, _, content = await post(json.dumps(settings()).encode())
+        self.assertEqual((status, content), ("HTTP/1.1 200 OK", {"message": "Saved", "restart": False}))
+        self.assertEqual(self.restarts, 0)
+        status, _, content = await post(json.dumps(settings(wireless_network={"SSID": "other", "hostname": "kvm"})).encode())
+        self.assertEqual(content, {"message": "Saved, restarting", "restart": True})
+        await asyncio.sleep(0)
+        self.assertEqual(self.restarts, 1)
+        self.assertEqual((await post(b"{not json"))[0], "HTTP/1.1 400 Bad Request")
+        status, _, content = await post(json.dumps(settings(led_idle_brightness=5)).encode())
+        self.assertEqual((status, content["message"]), ("HTTP/1.1 400 Bad Request", "LED brightness: from 0 to 1"))
+        self.assertEqual((await post(b" " * 20000))[0], "HTTP/1.1 413 Content Too Large")
+        status, _, _ = await self.request("POST /api/config HTTP/1.1\r\n" + credentials("secret"))
+        self.assertEqual(status, "HTTP/1.1 411 Length Required")
+
     async def test_metrics(self):
         status, _, content = await self.request("GET /metrics HTTP/1.1\r\n")
         self.assertEqual(status, "HTTP/1.1 200 OK")
