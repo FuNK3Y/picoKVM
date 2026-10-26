@@ -266,3 +266,4 @@ The tests run the application on CPython, with stand-ins for the board ([`tests/
 python3 firmware/generate.py
 python3 -m unittest discover -s tests
 ```
+CI also measures their coverage of `src/` (`coverage run --branch --source=src -m unittest discover -s tests`), and fails under 95%.

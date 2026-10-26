@@ -1,6 +1,7 @@
 import json
 import os
 import unittest
+from unittest.mock import patch
 
 from mocks import SoftI2C, TestCase
 import board
@@ -29,6 +30,28 @@ class ConfigTest(TestCase):
         self.assertEqual(saved["devices"][0], {"type": "DdcMonitor", "data": {"hdmi": 1, "inputs": {"A": 15, "B": 17}, "power_on": False, "power_on_delay": 2.0, "freq": 50000}})
         self.assertEqual(saved["devices"][2]["data"]["token"], "paired")
         self.assertEqual(saved["admin_password"], example["admin_password"])
+
+    def test_save_on_fat(self):
+        Config.devices = []
+        Config.admin_password = "first"
+        Config.save()
+        rename = os.rename
+        calls = []
+
+        def fat_rename(source, target):  # FAT cannot rename onto an existing file
+            calls.append(target)
+            if os.path.exists(target):
+                raise OSError("EEXIST")
+            rename(source, target)
+
+        Config.admin_password = "second"
+        with patch("os.rename", fat_rename):
+            Config.save()
+            Config.save()  # Unchanged: not written again
+        self.assertEqual(len(calls), 2)
+        with open("config.json") as file:
+            self.assertEqual(json.load(file)["admin_password"], "second")
+        self.assertFalse(os.path.exists("config.json.tmp"))
 
 
 class DdcMonitorTest(TestCase):

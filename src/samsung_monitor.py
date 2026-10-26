@@ -22,7 +22,7 @@ class SamsungMonitor(Device):
 
     @property
     def _client_encoded_name(self):
-        return binascii.b2a_base64(network.hostname()).decode().strip()
+        return binascii.b2a_base64(network.hostname().encode()).decode().strip()
 
     async def send_commands(self, commands):
         channel_uri = f"wss://{self.hostname}:8002/api/v2/channels/samsung.remote.control?name={self._client_encoded_name}"

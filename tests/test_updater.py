@@ -62,6 +62,12 @@ class InstallTest(TestCase):
         self.assertFalse(os.path.exists("update.json"))
 
 
+class RestartTest(TestCase):
+    async def test_restarts_after_the_response(self):
+        with self.assertRaises(Reset):
+            await asyncio.wait_for(Updater().restart(), 2)
+
+
 class TrialTest(TestCase):
     async def install_and_boot(self, version="v2.0.0"):
         data = image(version)

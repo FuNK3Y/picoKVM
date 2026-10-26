@@ -16,6 +16,7 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path[:0] = [os.path.join(ROOT, "src"), os.path.join(ROOT, "firmware", "generated")]
+sys.path.append(".frozen")  # MicroPython's entry for the frozen modules, which main.py moves first
 
 
 def module(name, **attributes):
@@ -137,18 +138,36 @@ class NeoPixel:
 class WLAN:
     STA_IF = 0
     PM_NONE = 0
+    connected = True
 
     def __init__(self, interface):
         pass
+
+    def active(self, active):
+        pass
+
+    def config(self, **settings):
+        pass
+
+    def connect(self, ssid, password):
+        self.ssid = ssid
+
+    def isconnected(self):
+        return WLAN.connected
 
     def status(self, name):
         return -50
 
 
 class ClientSession:
-    """aiohttp.ClientSession, answering GETs from `served`: {url: (status, body bytes)}."""
+    """aiohttp.ClientSession, answering GETs from `served`: {url: (status, body bytes)}, recording the other requests
+    and the websocket connections, whose messages come from `received` and go to `sent`."""
 
     served = {}
+    requests = []  # (method, url, kwargs)
+    connections = []  # URLs
+    received = []  # JSON messages, popped by receive_json()
+    sent = []  # JSON messages
 
     def __init__(self, headers={}):
         self.headers = headers
@@ -162,6 +181,22 @@ class ClientSession:
     def get(self, url):
         status, body = ClientSession.served[url]
         return _Context(_Response(status, body))
+
+    def request(self, method, url, **kwargs):
+        ClientSession.requests.append((method, url, kwargs))
+        return _Context(_Response(200, b"OK"))
+
+    def ws_connect(self, url):
+        ClientSession.connections.append(url)
+        return _Context(_WebSocket())
+
+
+class _WebSocket:
+    async def receive_json(self):
+        return ClientSession.received.pop(0)
+
+    async def send_json(self, message):
+        ClientSession.sent.append(message)
 
 
 class _Context:
@@ -184,6 +219,9 @@ class _Response:
     async def json(self):
         return json.loads(self.body)
 
+    async def text(self):
+        return self.body.decode()
+
     async def read(self, size):  # As aiohttp: exactly size bytes
         if self.position + size > len(self.body):
             raise EOFError
@@ -196,6 +234,7 @@ module("esp32", Partition=Partition, idf_heap_info=lambda kind: [(1000, 500, 400
 module("network", WLAN=WLAN, STA_IF=WLAN.STA_IF, hostname=lambda *args: "picokvm")
 module("neopixel", NeoPixel=NeoPixel)
 module("aiohttp", ClientSession=ClientSession)
+gc.threshold = lambda bytes: None
 gc.mem_free = lambda: 100000
 gc.mem_alloc = lambda: 50000
 time.ticks_ms = lambda: int(time.monotonic() * 1000)
@@ -242,8 +281,10 @@ class TestCase(unittest.IsolatedAsyncioTestCase):
         WDT.instances.clear()
         Pin.levels.clear()
         Pin.history.clear()
+        WLAN.connected = True
         SoftI2C.writes.clear()
-        ClientSession.served.clear()
+        for recorded in (ClientSession.served, ClientSession.requests, ClientSession.connections, ClientSession.received, ClientSession.sent):
+            recorded.clear()
 
     def tearDown(self):
         os.chdir(self._cwd)

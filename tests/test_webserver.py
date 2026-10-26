@@ -2,6 +2,7 @@ import asyncio
 import base64
 import json
 import unittest
+from unittest.mock import patch
 
 import mocks
 from mocks import ClientSession, Partition, TestCase, image
@@ -101,6 +102,18 @@ class WebServerTest(TestCase):
         self.assertEqual((await self.request("POST /api/active_input/C HTTP/1.1\r\n"))[0], "HTTP/1.1 404 Not Found")
         self.assertEqual((await self.request("GET /api/active_input/A HTTP/1.1\r\n"))[0], "HTTP/1.1 405 Method Not Allowed")
         self.assertEqual((await self.request("GET /api/update/ HTTP/1.1\r\n"))[0], "HTTP/1.1 200 OK")
+
+    async def test_errors(self):
+        status, _, content = await self.request("POST /api/update HTTP/1.1\r\nAuthorization: Basic A\r\n")  # Not base64
+        self.assertEqual(status, "HTTP/1.1 401 Unauthorized")
+        Config.devices[0].set_active_input = None  # Not callable: the switch fails
+        status, _, content = await self.request("POST /api/active_input/B HTTP/1.1\r\n")
+        self.assertEqual(status, "HTTP/1.1 500 Internal Server Error")
+        with patch.object(Updater, "install", side_effect=OSError("flash failure")):
+            status, _, content = await self.upload(image("v2.0.0"))
+        self.assertEqual((status, content), ("HTTP/1.1 500 Internal Server Error", {"message": "flash failure"}))
+        status, _, _ = await self.request("GET / HTTP/1.1", b"\xff\r\n\r\n")  # Undecodable header: the connection is dropped
+        self.assertEqual(status, "")
 
     async def test_metrics(self):
         status, _, content = await self.request("GET /metrics HTTP/1.1\r\n")
