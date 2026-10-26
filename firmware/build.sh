@@ -26,3 +26,4 @@ make -C "$micropython_dir/ports/esp32" BOARD_DIR="$firmware_dir/PICOKVM" submodu
 make -C "$micropython_dir/ports/esp32" BOARD_DIR="$firmware_dir/PICOKVM"
 cp "$micropython_dir/ports/esp32/build-PICOKVM/firmware.bin" "$build_dir/firmware.bin"
 cp "$micropython_dir/ports/esp32/build-PICOKVM/micropython.bin" "$build_dir/firmware-ota.bin"
+python3 "$firmware_dir/check_image.py" "$build_dir/firmware-ota.bin"  # The updater must accept the image
