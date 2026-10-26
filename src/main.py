@@ -1,3 +1,8 @@
+import sys
+
+sys.path.remove(".frozen")  # Run the firmware's modules even if stale copies are left on the filesystem
+sys.path.insert(0, ".frozen")
+
 import network
 import asyncio
 import gc

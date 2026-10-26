@@ -1,6 +1,7 @@
 import re
 import json
 import sys
+import index_html
 from config import Config
 
 
@@ -8,8 +9,7 @@ class WebServer:
     def __init__(self, controller, metrics_provider=None):
         self.metrics_provider = metrics_provider
         self.controller = controller
-        with open("index.html", "r") as file:
-            self._single_page_content = file.read()
+        self._single_page_content = index_html.content  # Generated from index.html by firmware/generate.py
         for key, value in {"hostname": Config.wireless_network["hostname"]}.items():
             self._single_page_content = self._single_page_content.replace(f"{{{{{key}}}}}", value)
 

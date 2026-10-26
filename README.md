@@ -48,11 +48,21 @@ You can add a physical button, I went with [this one](https://shop.m5stack.com/p
 ```
 
 ## Software setup
-For the picoKVM board, flash the plain MicroPython `ESP32_GENERIC_S3` firmware through the AUX / FLASH USB-C port: hold BOOT, press RESET, release BOOT, then `esptool.py write_flash 0 ESP32_GENERIC_S3-<date>-<version>.bin` (offset 0 on the S3). That port is also the MicroPython REPL afterwards. The plain build detects the module's 2 MB quad PSRAM at boot; don't use the `SPIRAM_OCT` variant, which is for octal PSRAM.
+The firmware is MicroPython with this repository's code (`src/`) built in. The same image runs on the picoKVM board and on the AtomS3 Lite (both have 8 MB of flash). Each [release](https://github.com/FuNK3Y/picoKVM/releases) has two files:
+- `firmware.bin`: the full image, flashed over USB;
+- `firmware-ota.bin`: the application alone, for [updates](#updates) over the network.
 
-Clone locally this repo and copy the files of this repository (not the `hardware/` folder) to your board ([Thonny](https://thonny.org/) works great for that). On top you need to install the additional package `aiohttp` (this can be done with Thonny as well).
+Flash `firmware.bin` over USB (on the picoKVM board, the AUX / FLASH USB-C port: hold BOOT, press RESET, release BOOT):
+```sh
+esptool.py erase_flash
+esptool.py write_flash 0 firmware.bin
+```
+Erase first: the flash layout (two application slots, for updates) is not the plain MicroPython one, and a leftover filesystem would not mount. This also wipes `config.json`: coming from an install that copied the files to the board, back it up first with `mpremote cp :config.json config.json`. The USB port is the MicroPython REPL afterwards.
 
-Copy `config.example.json` to `config.json` and adjust it with your settings. You need to configure at least your Wi-Fi credentials and the GPIO pin you connected the signal cable from the USB multiplexer to.
+Copy `config.example.json` to `config.json` and adjust it with your settings. You need to configure at least your Wi-Fi credentials and the GPIO pin you connected the signal cable from the USB multiplexer to. Upload it to the board and restart it, e.g. with [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) (or [Thonny](https://thonny.org/)'s file view):
+```sh
+mpremote cp config.json :config.json + reset
+```
 
 `config.json` is deliberately not tracked by git: the device rewrites it at runtime to persist the monitor pairing token, so it ends up holding both that token and your Wi-Fi password.
 
@@ -240,3 +250,11 @@ Invoke-RestMethod -Method POST "http://$hostname.local/api/active_input/A"
 ### Troubleshooting
 Pressing the button for more than 10 seconds will reset the device
 `/metrics` provide memory related information and wifi signal strength (plus, on the picoKVM board, which computers power their USB port and the peripheral fault flag). It can be ingested by prometheus
+
+## Building the firmware
+[`firmware/build.sh`](firmware/build.sh) builds both images into `firmware/build/`: MicroPython's generic ESP32-S3 configuration, with two application slots and the content of `src/` frozen in (the board definition is [`firmware/PICOKVM`](firmware/PICOKVM)). It needs [ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32s3/get-started/) v5.5.2:
+```sh
+. $IDF_PATH/export.sh
+firmware/build.sh
+```
+GitHub Actions runs the same build on every push and keeps the images as an artifact of the run, so a change can be tried on the board without a local ESP-IDF. Pushing a `v*` tag publishes them as a release. The version is `git describe` of the commit.

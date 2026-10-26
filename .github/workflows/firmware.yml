@@ -1,0 +1,45 @@
+name: Firmware
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+    paths-ignore: ["hardware/**", "esphome/**"]
+  pull_request:
+    paths-ignore: ["hardware/**", "esphome/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write  # Publishing the release of a tag
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.5.2  # The ESP-IDF version firmware/build.sh's MicroPython supports
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Tags, for the version (git describe)
+
+      - name: Build
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"  # The container runs as another user than the checkout
+          command -v gcc || (apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev)  # mpy-cross
+          . "$IDF_PATH/export.sh"
+          firmware/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: |
+            firmware/build/firmware.bin
+            firmware/build/firmware-ota.bin
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            firmware/build/firmware.bin
+            firmware/build/firmware-ota.bin
