@@ -80,6 +80,7 @@ Defaults are the picoKVM board's pins (as in `config.example.json`).
 | `peripheral_power_gpio_pin` | board only: peripheral port power; cycled on each switch so the peripheral re-enumerates on the new computer |
 | `peripheral_fault_gpio_pin` | board only: peripheral over-current / over-temperature flag (reported in `/metrics`) |
 | `vbus_sense_gpio_pins` | board only: `{"A": pin, "B": pin}`, high while that computer powers its USB port (reported in `/metrics`) |
+| `admin_password` | required, as HTTP Basic credentials with any user name, by the API calls that change the device ([updates](#updates)); while empty, they are refused |
 
 Then, you need to configure your monitor. On the picoKVM board, DDC/CI (below) needs no network. Otherwise, either make sure that IP remote is enabled *(Connection > Network > Expert Settings)* or configure SmartThings
 
@@ -250,6 +251,24 @@ Invoke-RestMethod -Method POST "http://$hostname.local/api/active_input/A"
 ### Troubleshooting
 Pressing the button for more than 10 seconds will reset the device
 `/metrics` provide memory related information and wifi signal strength (plus, on the picoKVM board, which computers power their USB port and the peripheral fault flag). It can be ingested by prometheus
+
+## Updates
+The firmware updates itself over the network, MicroPython included. Set `admin_password` in `config.json` first: updates are refused without it.
+
+Upload `firmware-ota.bin`, from a [release](https://github.com/FuNK3Y/picoKVM/releases) or from the artifact of any [GitHub Actions run](https://github.com/FuNK3Y/picoKVM/actions/workflows/firmware.yml):
+```sh
+curl -u admin:<admin_password> --data-binary @firmware-ota.bin http://$hostname.local/api/update
+```
+```powershell
+Invoke-RestMethod -Method POST -InFile firmware-ota.bin -Authentication Basic -Credential (Get-Credential) -AllowUnencryptedAuthentication "http://$hostname.local/api/update"
+```
+The image is written next to the running firmware, checked, and the device restarts into it. Images that are not picoKVM firmware are refused before anything is written. `config.json` is kept.
+
+The first boot of an update is a trial: the update is kept once the device is back on Wi-Fi with its web server up. If it is not within 2 minutes, or if it crashes or hangs (a watchdog runs during the trial), the device goes back to the previous firmware. `GET /api/update` gives the running version and the outcome of the last update; `/metrics` has the version too (`picokvm_info`).
+
+Updates cannot change the bootloader or the flash layout: that, like recovering a board, takes flashing `firmware.bin` over USB ([Software setup](#software-setup)).
+
+The API is plain HTTP: anyone able to watch your network traffic can read the password as it is sent.
 
 ## Building the firmware
 [`firmware/build.sh`](firmware/build.sh) builds both images into `firmware/build/`: MicroPython's generic ESP32-S3 configuration, with two application slots and the content of `src/` frozen in (the board definition is [`firmware/PICOKVM`](firmware/PICOKVM)). It needs [ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32s3/get-started/) v5.5.2:
