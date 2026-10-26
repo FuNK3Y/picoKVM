@@ -95,6 +95,13 @@ class WebServerTest(TestCase):
         self.assertEqual((await self.request("PUT /api/update HTTP/1.1\r\n"))[0], "HTTP/1.1 405 Method Not Allowed")
         self.assertEqual((await self.request("garbage\r\n"))[0], "HTTP/1.1 400 Bad Request")
 
+    async def test_paths(self):
+        self.assertEqual((await self.request("POST /api/active_input/B/ HTTP/1.1\r\n"))[0], "HTTP/1.1 200 OK")
+        self.assertEqual((await self.request("POST /api/active_input/ HTTP/1.1\r\n"))[2], {"active_input": {"A": Config.inputs["A"]}})  # Toggles
+        self.assertEqual((await self.request("POST /api/active_input/C HTTP/1.1\r\n"))[0], "HTTP/1.1 404 Not Found")
+        self.assertEqual((await self.request("GET /api/active_input/A HTTP/1.1\r\n"))[0], "HTTP/1.1 405 Method Not Allowed")
+        self.assertEqual((await self.request("GET /api/update/ HTTP/1.1\r\n"))[0], "HTTP/1.1 200 OK")
+
     async def test_metrics(self):
         status, _, content = await self.request("GET /metrics HTTP/1.1\r\n")
         self.assertEqual(status, "HTTP/1.1 200 OK")

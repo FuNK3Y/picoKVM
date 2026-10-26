@@ -1,10 +1,17 @@
 import asyncio
 import binascii
-import re
 import json
 import sys
 import index_html
 from config import Config
+
+
+class Request:
+    def __init__(self, reader, writer, headers, argument=None):
+        self.reader = reader
+        self.writer = writer
+        self.headers = headers
+        self.argument = argument  # The <input> of /api/active_input/<input>
 
 
 class WebServer:
@@ -12,9 +19,19 @@ class WebServer:
         self.metrics_provider = metrics_provider
         self.controller = controller
         self.updater = updater
-        self._single_page_content = index_html.content  # Generated from index.html by firmware/generate.py
-        for key, value in {"hostname": Config.wireless_network["hostname"]}.items():
-            self._single_page_content = self._single_page_content.replace(f"{{{{{key}}}}}", value)
+        self._single_page_content = index_html.content.replace("{{hostname}}", Config.wireless_network["hostname"])  # Generated from index.html by firmware/generate.py
+        self._routes = {
+            ("GET", "/"): self.single_page,
+            ("GET", "/metrics"): self.metrics,
+            ("GET", "/api/active_input"): self.get_active_input,
+            ("POST", "/api/active_input"): self.set_active_input,  # Toggles
+            ("POST", "/api/active_input/<input>"): self.set_active_input,
+            ("GET", "/api/update"): self.get_update,
+            ("POST", "/api/update"): self.upload_update,
+            ("GET", "/api/update/latest"): self.get_latest_release,
+            ("POST", "/api/update/latest"): self.install_latest_release,
+        }
+        self._protected = {("POST", "/api/update"), ("POST", "/api/update/latest")}  # Require admin_password
 
     async def handle_client(self, reader, writer):
         try:
@@ -39,16 +56,21 @@ class WebServer:
         try:
             method, path, _ = request_line.decode("utf-8").split(" ", 2)
         except (ValueError, UnicodeError):
-            self.write_response(writer, "400 Bad Request", json.dumps({"message": "Bad Request"}))
+            self.error(writer, "400 Bad Request", "Bad Request")
             return
-        if path.startswith("/api/"):
-            await self.api(reader, writer, method, path, headers)
-        elif self.metrics_provider and path == "/metrics" and method == "GET":
-            await self.metrics(writer)
-        elif path == "/" and method == "GET":
-            await self.single_page(writer)
-        else:
-            self.write_response(writer, "404 Not Found", json.dumps({"message": "404 Not Found"}))
+        path = path.rstrip("/") or "/"
+        argument = None
+        if path.startswith("/api/active_input/"):
+            argument = path[len("/api/active_input/") :]
+            path = "/api/active_input/<input>" if argument in ("A", "B") else None
+        handler = self._routes.get((method, path))
+        if handler is None:
+            if any(route_path == path for _, route_path in self._routes):
+                self.error(writer, "405 Method Not Allowed", "Method Not Allowed")
+            else:
+                self.error(writer, "404 Not Found", "404 Not Found")
+        elif (method, path) not in self._protected or self.authorized(writer, headers):
+            await handler(Request(reader, writer, headers, argument))
 
     def write_response(self, writer, status_code, content, content_type="application/json", headers={}):
         content = content.encode()
@@ -56,16 +78,16 @@ class WebServer:
         writer.write(f"HTTP/1.1 {status_code}\r\nContent-Type: {content_type}\r\nContent-Length: {len(content)}\r\n{extra_headers}Connection: close\r\n\r\n")
         writer.write(content)
 
-    async def metrics(self, writer):
-        self.write_response(writer, "200 OK", self.metrics_provider.metrics(), "text/plain")
+    def json_response(self, writer, status_code, data, headers={}):
+        self.write_response(writer, status_code, json.dumps(data), headers=headers)
 
-    async def single_page(self, writer):
-        self.write_response(writer, "200 OK", self._single_page_content, "text/html")
+    def error(self, writer, status_code, message, headers={}):
+        self.json_response(writer, status_code, {"message": message}, headers)
 
     def authorized(self, writer, headers):
         """Checks the request's HTTP Basic credentials against admin_password; otherwise answers the request."""
         if not Config.admin_password:
-            self.write_response(writer, "403 Forbidden", json.dumps({"message": "Set admin_password in config.json to enable this"}))
+            self.error(writer, "403 Forbidden", "Set admin_password in config.json to enable this")
             return False
         scheme, _, credentials = headers.get("authorization", "").partition(" ")
         try:
@@ -73,66 +95,64 @@ class WebServer:
         except ValueError:
             password = None
         if scheme.lower() != "basic" or password != Config.admin_password:
-            self.write_response(writer, "401 Unauthorized", json.dumps({"message": "Unauthorized"}), headers={"WWW-Authenticate": 'Basic realm="picoKVM"'})
+            self.error(writer, "401 Unauthorized", "Unauthorized", {"WWW-Authenticate": 'Basic realm="picoKVM"'})
             return False
         return True
 
-    async def upload_update(self, reader, writer, headers):
-        if not self.authorized(writer, headers):
-            return
-        try:
-            size = int(headers["content-length"])
-        except (KeyError, ValueError):
-            self.write_response(writer, "411 Length Required", json.dumps({"message": "Content-Length required"}))
-            return
-        if headers.get("expect", "").lower() == "100-continue":  # curl asks before sending a large body
-            writer.write("HTTP/1.1 100 Continue\r\n\r\n")
-            await writer.drain()
-        await self.install_update(writer, lambda: self.updater.install(reader.read, size))
+    async def single_page(self, request):
+        self.write_response(request.writer, "200 OK", self._single_page_content, "text/html")
 
-    async def install_latest_release(self):
-        return await self.updater.install_release(await self.updater.latest_release(Config.update_repository))
+    async def metrics(self, request):
+        self.write_response(request.writer, "200 OK", self.metrics_provider.metrics(), "text/plain")
+
+    async def get_active_input(self, request):
+        input = self.controller.selected_input
+        self.json_response(request.writer, "200 OK", {"active_input": {input: Config.inputs[input]}})
+
+    async def set_active_input(self, request):
+        try:
+            await self.controller.set_active_input(request.argument)
+        except Exception as e:
+            self.error(request.writer, "500 Internal Server Error", str(e))
+        else:
+            await self.get_active_input(request)
+
+    async def get_update(self, request):
+        self.json_response(request.writer, "200 OK", {"version": self.updater.version, "status": self.updater.status})
+
+    async def upload_update(self, request):
+        try:
+            size = int(request.headers["content-length"])
+        except (KeyError, ValueError):
+            self.error(request.writer, "411 Length Required", "Content-Length required")
+            return
+        if request.headers.get("expect", "").lower() == "100-continue":  # curl asks before sending a large body
+            request.writer.write("HTTP/1.1 100 Continue\r\n\r\n")
+            await request.writer.drain()
+        await self.install_update(request.writer, lambda: self.updater.install(request.reader.read, size))
+
+    async def get_latest_release(self, request):
+        try:
+            latest = (await self.updater.latest_release(Config.update_repository))["version"]
+        except Exception as e:
+            self.error(request.writer, "502 Bad Gateway", str(e))
+        else:
+            self.json_response(request.writer, "200 OK", {"version": self.updater.version, "latest": latest, "update_available": latest != self.updater.version})
+
+    async def install_latest_release(self, request):
+        async def install():
+            return await self.updater.install_release(await self.updater.latest_release(Config.update_repository))
+
+        await self.install_update(request.writer, install)
 
     async def install_update(self, writer, install):
         try:
             async with self.controller.lock:  # No switch while the flash is being written
                 version = await install()
         except ValueError as e:
-            self.write_response(writer, "400 Bad Request", json.dumps({"message": str(e)}))
+            self.error(writer, "400 Bad Request", str(e))
         except Exception as e:
-            self.write_response(writer, "500 Internal Server Error", json.dumps({"message": str(e)}))
+            self.error(writer, "500 Internal Server Error", str(e))
         else:
-            self.write_response(writer, "200 OK", json.dumps({"message": f"Restarting into {version}", "version": version}))
+            self.json_response(writer, "200 OK", {"message": f"Restarting into {version}", "version": version})
             asyncio.create_task(self.updater.restart())
-
-    async def api(self, reader, writer, method, path, headers):
-        if method == "POST":
-            match = re.match(r"^/api/active_input/?(?:/([AB])/?)?$", path)
-            if match:
-                try:
-                    await self.controller.set_active_input(match.group(1))
-                    self.write_response(writer, "200 OK", json.dumps({"active_input": {self.controller.selected_input: Config.inputs[self.controller.selected_input]}}))
-                except Exception as e:
-                    self.write_response(writer, "500 Internal Server Error", json.dumps({"message": str(e)}))
-            elif re.match(r"^/api/update/?$", path):
-                await self.upload_update(reader, writer, headers)
-            elif re.match(r"^/api/update/latest/?$", path):
-                if self.authorized(writer, headers):
-                    await self.install_update(writer, self.install_latest_release)
-            else:
-                self.write_response(writer, "404 Not Found", json.dumps({"message": "404 Not Found"}))
-        elif method == "GET":
-            if re.match(r"^/api/active_input/?$", path):
-                self.write_response(writer, "200 OK", json.dumps({"active_input": {self.controller.selected_input: Config.inputs[self.controller.selected_input]}}))
-            elif re.match(r"^/api/update/?$", path):
-                self.write_response(writer, "200 OK", json.dumps({"version": self.updater.version, "status": self.updater.status}))
-            elif re.match(r"^/api/update/latest/?$", path):
-                try:
-                    latest = (await self.updater.latest_release(Config.update_repository))["version"]
-                    self.write_response(writer, "200 OK", json.dumps({"version": self.updater.version, "latest": latest, "update_available": latest != self.updater.version}))
-                except Exception as e:
-                    self.write_response(writer, "502 Bad Gateway", json.dumps({"message": str(e)}))
-            else:
-                self.write_response(writer, "404 Not Found", json.dumps({"message": "404 Not Found"}))
-        else:
-            self.write_response(writer, "405 Method Not Allowed", json.dumps({"message": "Method Not Allowed"}))
