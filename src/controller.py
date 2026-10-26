@@ -1,5 +1,6 @@
 import asyncio
 import gc
+import board
 import neopixel
 from machine import Pin
 from config import Config
@@ -12,10 +13,10 @@ class Controller:
     _peripheral_off_time = 0.2  # Long enough for the peripheral to see a disconnect and re-enumerate on the new computer
 
     def __init__(self):
-        self._usb_select = Pin(Config.usb_gpio_pin, Pin.OUT)
-        Pin(Config.usb_enable_gpio_pin, Pin.OUT, value=0)  # The data switches are off until enabled
-        self._peripheral_power = Pin(Config.peripheral_power_gpio_pin, Pin.OUT, value=1)  # The peripheral port is unpowered at reset
-        self._leds = [neopixel.NeoPixel(Pin(pin, Pin.OUT), 1) for pin in Config.led_gpio_pin]
+        self._usb_select = Pin(board.USB_SELECT, Pin.OUT)
+        Pin(board.USB_ENABLE, Pin.OUT, value=0)  # The data switches are off until enabled
+        self._peripheral_power = Pin(board.PERIPHERAL_POWER, Pin.OUT, value=1)  # The peripheral port is unpowered at reset
+        self._leds = [neopixel.NeoPixel(Pin(pin, Pin.OUT), 1) for pin in board.LEDS]
         self._show_idle()
 
     @property

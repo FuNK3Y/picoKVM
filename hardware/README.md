@@ -230,8 +230,7 @@ is not a design limit, so rev A is validated inside this envelope:
 
 ## Firmware contract
 
-Implemented by the firmware in the repository root (`config.example.json` uses
-these pins).
+Implemented by the firmware in `src/` (`src/board.py` holds these pins).
 
 | GPIO | function |
 |---|---|

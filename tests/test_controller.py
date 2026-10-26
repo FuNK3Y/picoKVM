@@ -3,6 +3,7 @@ import unittest
 from mocks import Pin, TestCase
 from config import Config
 from controller import Controller
+import board
 
 
 class Device:
@@ -27,8 +28,8 @@ class ControllerTest(TestCase):
 
     def test_enables_the_board_at_start(self):
         Controller()
-        self.assertEqual(Pin.levels[Config.usb_enable_gpio_pin], 0)
-        self.assertEqual(Pin.levels[Config.peripheral_power_gpio_pin], 1)
+        self.assertEqual(Pin.levels[board.USB_ENABLE], 0)
+        self.assertEqual(Pin.levels[board.PERIPHERAL_POWER], 1)
 
     async def test_switch_power_cycles_the_peripherals(self):
         controller = Controller()
@@ -36,7 +37,7 @@ class ControllerTest(TestCase):
         await controller.set_active_input("B")
         self.assertEqual(controller.selected_input, "B")
         self.assertEqual(Config.devices[0].inputs, ["B"])
-        power, select = Config.peripheral_power_gpio_pin, Config.usb_gpio_pin
+        power, select = board.PERIPHERAL_POWER, board.USB_SELECT
         switch = [entry for entry in Pin.history if entry[0] in (power, select)]
         self.assertEqual(switch, [(power, 0), (select, 1), (power, 1)])
 
@@ -44,7 +45,7 @@ class ControllerTest(TestCase):
         controller = Controller()
         Pin.history.clear()
         await controller.set_active_input("A")
-        self.assertNotIn((Config.peripheral_power_gpio_pin, 0), Pin.history)
+        self.assertNotIn((board.PERIPHERAL_POWER, 0), Pin.history)
 
     async def test_toggle(self):
         controller = Controller()

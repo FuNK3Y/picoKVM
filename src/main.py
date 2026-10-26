@@ -15,6 +15,7 @@ from webserver import WebServer
 from controller import Controller
 from button_handler import ButtonHandler
 from metrics_provider import MetricsProvider
+import board
 
 gc.threshold((gc.mem_free() + gc.mem_alloc()) // 3)
 
@@ -34,7 +35,7 @@ def connect():
 async def main():
     wlan = connect()
     await asyncio.start_server(WebServer(controller, MetricsProvider(updater), updater).handle_client, "0.0.0.0", 80)
-    asyncio.create_task(ButtonHandler(Config.button_gpio_pin, controller.set_active_input).poll())
+    asyncio.create_task(ButtonHandler(board.BUTTON, controller.set_active_input).poll())
     await updater.run(wlan.isconnected)  # Healthy: config loaded, web server up, and on the network
 
 

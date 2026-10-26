@@ -27,7 +27,7 @@ A dedicated board, designed in this repository ([`hardware/`](hardware/README.md
 
 ![picoKVM board](hardware/revA/img/iso.png)
 
-`config.example.json` is set up for this board (pin map in [hardware/README.md](hardware/README.md#firmware-contract)). Connect an HDMI cable from each HDMI port to a monitor whose input should follow the KVM, and enable DDC/CI in the monitor's menu.
+Its pin map is in [hardware/README.md](hardware/README.md#firmware-contract). Connect an HDMI cable from each HDMI port to a monitor whose input should follow the KVM, and enable DDC/CI in the monitor's menu.
 
 ## Software setup
 The firmware is MicroPython with this repository's code (`src/`) built in. Each [release](https://github.com/FuNK3Y/picoKVM/releases) has two files:
@@ -50,31 +50,25 @@ mpremote cp config.json :config.json + reset
 
 ### Settings
 
-The pins are the board's (as in `config.example.json`): leave them as they are.
+The board's pins are fixed in the firmware ([`src/board.py`](src/board.py)). Besides `wireless_network`, `inputs` (name and LED color of each computer) and `devices` (the monitors, below):
 
 | key | what |
 |---|---|
-| `usb_gpio_pin` | USB select output: low = input `A`, high = input `B` |
-| `button_gpio_pin` | switch button, active low |
-| `led_gpio_pin` | SK6812/WS2812 data pins: on-board LED and Grove key LED |
 | `led_idle_brightness` | `0`: LEDs off after a switch; `0` to `1`: keep showing the active input's color at that brightness |
-| `usb_enable_gpio_pin` | enables the USB data switches (active low, off until the firmware starts) |
-| `peripheral_power_gpio_pin` | peripheral port power; cycled on each switch so the peripheral re-enumerates on the new computer |
-| `peripheral_fault_gpio_pin` | peripheral over-current / over-temperature flag (reported in `/metrics`) |
-| `vbus_sense_gpio_pins` | `{"A": pin, "B": pin}`, high while that computer powers its USB port (reported in `/metrics`) |
 | `admin_password` | required, as HTTP Basic credentials with any user name, by the API calls that change the device ([updates](#updates)); while empty, they are refused |
 | `update_repository` | GitHub repository whose latest release the device updates to (default `FuNK3Y/picoKVM`) |
+
+A `config.json` from an earlier version still loads: its pin settings are ignored. Only its `DdcMonitor` devices need `"hdmi": 1` (or `2`) in place of `sda_gpio_pin` / `scl_gpio_pin`.
 
 Then, you need to configure your monitor. DDC/CI (below) needs no network. Otherwise, either make sure that IP remote is enabled *(Connection > Network > Expert Settings)* or configure SmartThings
 
 ### DDC/CI
-Each HDMI port of the board is a `DdcMonitor` device: `sda_gpio_pin` / `scl_gpio_pin` are `1` / `2` for HDMI 1 and `4` / `5` for HDMI 2. `inputs` maps `A` and `B` to the VESA MCCS value of the monitor's input source (VCP `0x60`): commonly `15` (DisplayPort 1), `16` (DisplayPort 2), `17` (HDMI 1), `18` (HDMI 2). Some monitors use their own values: read VCP `0x60` with a DDC tool (`ddcutil getvcp 60` on Linux, *ControlMyMonitor* on Windows) while each input is active. `power_on` also sends power-on (VCP `0xD6`) first, for monitors that keep DDC/CI alive in standby.
+Each HDMI port of the board is a `DdcMonitor` device: `hdmi` is `1` or `2`. `inputs` maps `A` and `B` to the VESA MCCS value of the monitor's input source (VCP `0x60`): commonly `15` (DisplayPort 1), `16` (DisplayPort 2), `17` (HDMI 1), `18` (HDMI 2). Some monitors use their own values: read VCP `0x60` with a DDC tool (`ddcutil getvcp 60` on Linux, *ControlMyMonitor* on Windows) while each input is active. `power_on` also sends power-on (VCP `0xD6`) first, for monitors that keep DDC/CI alive in standby.
 
 ```json
 {
     "data": {
-        "sda_gpio_pin": 1,
-        "scl_gpio_pin": 2,
+        "hdmi": 1,
         "inputs": {"A": 15, "B": 17},
         "power_on": false
     },
@@ -265,9 +259,10 @@ The API is plain HTTP: anyone able to watch your network traffic can read the pa
 . $IDF_PATH/export.sh
 firmware/build.sh
 ```
+GitHub Actions runs the same build on every push and keeps the images as an artifact of the run, so a change can be tried on the board without a local ESP-IDF. Pushing a `v*` tag publishes them as a release. The version is `git describe` of the commit.
+
 The tests run the application on CPython, with stand-ins for the board ([`tests/mocks.py`](tests/mocks.py)):
 ```sh
 python3 firmware/generate.py
 python3 -m unittest discover -s tests
 ```
-GitHub Actions runs the same build on every push and keeps the images as an artifact of the run, so a change can be tried on the board without a local ESP-IDF. Pushing a `v*` tag publishes them as a release. The version is `git describe` of the commit.
