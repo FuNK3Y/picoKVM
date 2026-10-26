@@ -18,6 +18,7 @@ class Config:
     peripheral_power_gpio_pin = 10  # Active high: powers the peripheral port, cycled on each switch
     peripheral_fault_gpio_pin = 16  # Active low: peripheral port over-current / over-temperature
     vbus_sense_gpio_pins = {"A": 11, "B": 12}  # {"A": pin, "B": pin}: high while that computer powers its USB port
+    admin_password = None  # Required, as HTTP Basic credentials (any user name), by the API calls that change the device
     devices = []
     _configFile = "config.json"
     _lastSaved = None

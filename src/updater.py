@@ -1,4 +1,6 @@
 import asyncio
+import binascii
+import hashlib
 import json
 import machine
 import os
@@ -19,6 +21,8 @@ class Updater:
     _VERSION_PREFIX = "picoKVM "  # firmware/generate.py: marks the images of this firmware
     _WATCHDOG_TIMEOUT = 60000  # ms: generous, DNS lookups block the event loop
     _TRIAL_TIMEOUT = 120  # s: for the new firmware to come up healthy
+    _BLOCK_SIZE = 4096  # Flash erase unit
+    _READ_TIMEOUT = 30  # s: a stalled upload or download must not hold the KVM forever
 
     def __init__(self):
         self.version = self.image_version(self._read_header(Partition(Partition.RUNNING)))
@@ -57,6 +61,49 @@ class Updater:
         if not version.startswith(cls._VERSION_PREFIX):
             raise ValueError("Not a picoKVM firmware image")
         return version[len(cls._VERSION_PREFIX) :]
+
+    async def install(self, read, size, sha256=None):
+        """Writes an application image (firmware-ota.bin) to the slot not running, and makes it the next to boot.
+
+        read(n) returns up to n bytes of the image, which is size bytes long. Returns the image's version.
+        """
+        slot = Partition(Partition.RUNNING).get_next_update()
+        if not 0 < size <= slot.info()[3]:
+            raise ValueError(f"An image of {size} bytes does not fit the {slot.info()[3]} bytes of the slot")
+        block = bytearray(self._BLOCK_SIZE)
+        view = memoryview(block)
+        digest = hashlib.sha256()
+        version = None
+        received = filled = index = 0
+        while received < size:
+            data = await asyncio.wait_for(read(min(self._BLOCK_SIZE - filled, size - received)), self._READ_TIMEOUT)
+            if not data:
+                raise ValueError(f"Image cut off after {received} of {size} bytes")
+            view[filled : filled + len(data)] = data
+            filled += len(data)
+            received += len(data)
+            if filled == self._BLOCK_SIZE or received == size:
+                digest.update(view[:filled])
+                view[filled:] = b"\xff" * (self._BLOCK_SIZE - filled)  # Erased flash
+                if index == 0:
+                    version = self.image_version(block)  # Before overwriting anything
+                slot.writeblocks(index, block)
+                index += 1
+                filled = 0
+        if sha256 and binascii.hexlify(digest.digest()).decode() != sha256.lower():
+            raise ValueError("Image corrupted: SHA-256 mismatch")
+        with open(self._STATE_FILE, "w") as file:  # Before set_boot: a power loss right after must not skip the trial
+            json.dump({"from": self.version, "to": version, "slot": slot.info()[4]}, file)
+        try:
+            slot.set_boot()  # Verifies the image: checksum, and the SHA-256 it carries
+        except OSError as e:
+            os.remove(self._STATE_FILE)
+            raise ValueError(f"Image rejected: {e}")
+        return version
+
+    async def restart(self):
+        await asyncio.sleep(1)  # Lets the response go out
+        machine.reset()
 
     async def run(self, is_healthy):
         """On a trial boot: confirms the update once is_healthy() holds, or restarts into the previous firmware."""

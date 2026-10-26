@@ -9,6 +9,7 @@
             "name": "Laptop"
         }
     },
+    "admin_password": "",
     "wireless_network": {
         "SSID": "SSID",
         "hostname": "PicoKVM",

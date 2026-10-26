@@ -1,3 +1,5 @@
+import asyncio
+import binascii
 import re
 import json
 import sys
@@ -18,9 +20,14 @@ class WebServer:
         try:
             request_line = await reader.readline()
             if request_line:  # Browsers routinely open a connection and close it without sending anything
-                while await reader.readline() not in (b"\r\n", b"\n", b""):  # Drain the headers
-                    pass
-                await self.route(writer, request_line)
+                headers = {}
+                while True:
+                    line = await reader.readline()
+                    if line in (b"\r\n", b"\n", b""):
+                        break
+                    name, _, value = line.decode().partition(":")
+                    headers[name.strip().lower()] = value.strip()
+                await self.route(reader, writer, request_line, headers)
                 await writer.drain()
         except Exception as e:
             print("Error with client handing:", e)
@@ -28,14 +35,14 @@ class WebServer:
         finally:
             await writer.wait_closed()
 
-    async def route(self, writer, request_line):
+    async def route(self, reader, writer, request_line, headers):
         try:
             method, path, _ = request_line.decode("utf-8").split(" ", 2)
         except (ValueError, UnicodeError):
             self.write_response(writer, "400 Bad Request", json.dumps({"message": "Bad Request"}))
             return
         if path.startswith("/api/"):
-            await self.api(writer, method, path)
+            await self.api(reader, writer, method, path, headers)
         elif self.metrics_provider and path == "/metrics" and method == "GET":
             await self.metrics(writer)
         elif path == "/" and method == "GET":
@@ -43,9 +50,10 @@ class WebServer:
         else:
             self.write_response(writer, "404 Not Found", json.dumps({"message": "404 Not Found"}))
 
-    def write_response(self, writer, status_code, content, content_type="application/json"):
+    def write_response(self, writer, status_code, content, content_type="application/json", headers={}):
         content = content.encode()
-        writer.write(f"HTTP/1.1 {status_code}\r\nContent-Type: {content_type}\r\nContent-Length: {len(content)}\r\nConnection: close\r\n\r\n")
+        extra_headers = "".join(f"{name}: {value}\r\n" for name, value in headers.items())
+        writer.write(f"HTTP/1.1 {status_code}\r\nContent-Type: {content_type}\r\nContent-Length: {len(content)}\r\n{extra_headers}Connection: close\r\n\r\n")
         writer.write(content)
 
     async def metrics(self, writer):
@@ -54,7 +62,47 @@ class WebServer:
     async def single_page(self, writer):
         self.write_response(writer, "200 OK", self._single_page_content, "text/html")
 
-    async def api(self, writer, method, path):
+    def authorized(self, writer, headers):
+        """Checks the request's HTTP Basic credentials against admin_password; otherwise answers the request."""
+        if not Config.admin_password:
+            self.write_response(writer, "403 Forbidden", json.dumps({"message": "Set admin_password in config.json to enable this"}))
+            return False
+        scheme, _, credentials = headers.get("authorization", "").partition(" ")
+        try:
+            password = binascii.a2b_base64(credentials).decode().partition(":")[2]
+        except ValueError:
+            password = None
+        if scheme.lower() != "basic" or password != Config.admin_password:
+            self.write_response(writer, "401 Unauthorized", json.dumps({"message": "Unauthorized"}), headers={"WWW-Authenticate": 'Basic realm="picoKVM"'})
+            return False
+        return True
+
+    async def upload_update(self, reader, writer, headers):
+        if not self.authorized(writer, headers):
+            return
+        try:
+            size = int(headers["content-length"])
+        except (KeyError, ValueError):
+            self.write_response(writer, "411 Length Required", json.dumps({"message": "Content-Length required"}))
+            return
+        if headers.get("expect", "").lower() == "100-continue":  # curl asks before sending a large body
+            writer.write("HTTP/1.1 100 Continue\r\n\r\n")
+            await writer.drain()
+        await self.install_update(writer, reader.read, size)
+
+    async def install_update(self, writer, read, size, sha256=None):
+        try:
+            async with self.controller.lock:  # No switch while the flash is being written
+                version = await self.updater.install(read, size, sha256)
+        except ValueError as e:
+            self.write_response(writer, "400 Bad Request", json.dumps({"message": str(e)}))
+        except Exception as e:
+            self.write_response(writer, "500 Internal Server Error", json.dumps({"message": str(e)}))
+        else:
+            self.write_response(writer, "200 OK", json.dumps({"message": f"Restarting into {version}", "version": version}))
+            asyncio.create_task(self.updater.restart())
+
+    async def api(self, reader, writer, method, path, headers):
         if method == "POST":
             match = re.match(r"^/api/active_input/?(?:/([AB])/?)?$", path)
             if match:
@@ -63,6 +111,8 @@ class WebServer:
                     self.write_response(writer, "200 OK", json.dumps({"active_input": {self.controller.selected_input: Config.inputs[self.controller.selected_input]}}))
                 except Exception as e:
                     self.write_response(writer, "500 Internal Server Error", json.dumps({"message": str(e)}))
+            elif re.match(r"^/api/update/?$", path):
+                await self.upload_update(reader, writer, headers)
             else:
                 self.write_response(writer, "404 Not Found", json.dumps({"message": "404 Not Found"}))
         elif method == "GET":

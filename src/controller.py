@@ -6,7 +6,7 @@ from config import Config
 
 
 class Controller:
-    _lock = asyncio.Lock()
+    lock = asyncio.Lock()  # Held while switching, and while writing an update
     _switch_timeout = 45  # A monitor in standby has to bring its websocket service up before KEY_RETURN can even be sent
     _switch_attempts = 2
     _peripheral_off_time = 0.2  # Long enough for the peripheral to see a disconnect and re-enumerate on the new computer
@@ -61,7 +61,7 @@ class Controller:
                 self._set_leds((0, 0, 0))
                 raise
 
-        async with self._lock:
+        async with self.lock:
             if not input:
                 input = "A" if self.selected_input == "B" else "B"
             blink_led_task = asyncio.create_task(blink_led(self._rgb(input)))
