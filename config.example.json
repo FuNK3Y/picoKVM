@@ -1,11 +1,11 @@
 {
     "inputs": {
         "A": {
-            "color": "#007BFF",
+            "color": "#FF8C00",
             "name": "PC"
         },
         "B": {
-            "color": "#902a8d",
+            "color": "#3DBDE7",
             "name": "Laptop"
         }
     },

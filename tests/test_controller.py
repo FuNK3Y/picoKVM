@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 
 from mocks import Pin, TestCase
@@ -46,6 +47,29 @@ class ControllerTest(TestCase):
         Pin.history.clear()
         await controller.set_active_input("A")
         self.assertNotIn((board.PERIPHERAL_POWER, 0), Pin.history)
+
+    async def test_state(self):
+        controller = Controller()
+        self.assertEqual(controller.state(), {"active_input": {"A": Config.inputs["A"]}, "switching": None, "error": None})
+        states = []
+
+        async def watch():
+            while True:
+                changed = controller.changed
+                await changed.wait()
+                states.append(controller.state())
+
+        watcher = asyncio.ensure_future(watch())
+        await asyncio.sleep(0)
+        await controller.set_active_input("B")
+        await asyncio.sleep(0)
+        self.assertEqual(states[0]["switching"], {"B": Config.inputs["B"]})
+        self.assertEqual(states[-1], {"active_input": {"B": Config.inputs["B"]}, "switching": None, "error": None})
+        Config.devices = [Device(fail=2)]
+        with self.assertRaises(OSError):
+            await controller.set_active_input("A")
+        self.assertEqual(controller.state()["error"], "monitor unreachable")
+        watcher.cancel()
 
     async def test_toggle(self):
         controller = Controller()

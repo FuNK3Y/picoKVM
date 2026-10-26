@@ -46,6 +46,8 @@ Copy `config.example.json` to `config.json` and adjust it with your settings. Yo
 mpremote cp config.json :config.json + reset
 ```
 
+Set an `admin_password` there too: it opens the [settings page](#settings-page), from which everything else can then be changed.
+
 `config.json` is deliberately not tracked by git: the device rewrites it at runtime to persist the monitor pairing token, so it ends up holding both that token and your Wi-Fi password.
 
 ### Settings
@@ -55,7 +57,7 @@ The board's pins are fixed in the firmware ([`src/board.py`](src/board.py)). Bes
 | key | what |
 |---|---|
 | `led_idle_brightness` | `0`: LEDs off after a switch; `0` to `1`: keep showing the active input's color at that brightness |
-| `admin_password` | required, as HTTP Basic credentials with any user name, by the API calls that change the device ([updates](#updates)); while empty, they are refused |
+| `admin_password` | required, as HTTP Basic credentials with any user name, by the settings page and the API calls that change the device; while empty, they are refused |
 | `update_repository` | GitHub repository whose latest release the device updates to (default `FuNK3Y/picoKVM`) |
 
 A `config.json` from an earlier version still loads: its pin settings are ignored. Only its `DdcMonitor` devices need `"hdmi": 1` (or `2`) in place of `sda_gpio_pin` / `scl_gpio_pin`.
@@ -213,12 +215,19 @@ The dashed link is the picoKVM board's HDMI port: it carries only DDC/CI to swit
 On top of the physical button, there are two ways to operate the KVM. You need to know the `$hostname` of the device to connect (default value is picokvm)
 
 ### Web page
-Simply connect to `http://$hostname.local` and press the button. Below it are the firmware version and its [updates](#updates).
+Simply connect to `http://$hostname.local` and press the button. The page follows the KVM as it switches, whoever switches it (the button, another page, the API), and follows the browser's light or dark mode.
+
+### Settings page
+*Settings*, below the button (`http://$hostname.local/config`), edits the configuration after the browser asks for the admin password (any user name): Wi-Fi, input names and colors, LED brightness, the admin password, and the monitors (a form for DDC/CI monitors, JSON for the others, checked when saving). Changes apply at once, except Wi-Fi ones, which restart the device. The firmware [updates](#updates) are there too.
 
 ### API
 Issue a `POST` request to `http://$hostname.local/api/active_input/A` or `B`.
 
 **_NOTE:_** If the input name is omitted, it will act as a toggle.
+
+`GET /api/active_input` gives the state: the active input, the one being switched to (`switching`, or `null`) and why the last switch failed (`error`, or `null`). `GET /api/events` streams that state as [server-sent events](https://developer.mozilla.org/docs/Web/API/Server-sent_events), on every change.
+
+`GET /api/config` and `POST /api/config` read and write the configuration (password-protected, without the passwords; send `password` / `admin_password` only to change them).
 
 #### PowerShell example:
 ```powershell
@@ -232,7 +241,7 @@ Pressing the button for more than 10 seconds will reset the device
 ## Updates
 The firmware updates itself over the network, MicroPython included. Set `admin_password` in `config.json` first: updates are refused without it.
 
-The simplest is from the web page: *Check for updates* looks up the latest [release](https://github.com/FuNK3Y/picoKVM/releases), and *Update to …* installs it (the browser asks for the password). The same through the API:
+The simplest is from the [settings page](#settings-page): *Check for updates* looks up the latest [release](https://github.com/FuNK3Y/picoKVM/releases) and *Install …* installs it; *Upload* installs a `firmware-ota.bin` you have. The same through the API:
 ```sh
 curl http://$hostname.local/api/update/latest                                     # {"version": ..., "latest": ..., "update_available": ...}
 curl -u admin:<admin_password> -X POST http://$hostname.local/api/update/latest   # downloads and installs it

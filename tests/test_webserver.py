@@ -82,13 +82,26 @@ class WebServerTest(TestCase):
         self.assertEqual(status, "HTTP/1.1 200 OK")
         self.assertIn(b"<title>kvm</title>", content)
 
+    async def test_config_page(self):
+        self.assertEqual((await self.request("GET /config HTTP/1.1\r\n"))[0], "HTTP/1.1 401 Unauthorized")
+        status, headers, content = await self.request("GET /config HTTP/1.1\r\n" + credentials("secret"))
+        self.assertEqual(status, "HTTP/1.1 200 OK")
+        self.assertIn("Content-Type: text/html", headers)
+        self.assertIn(b"/api/config", content)
+
+    async def test_stylesheet(self):
+        status, headers, content = await self.request("GET /style.css HTTP/1.1\r\n")
+        self.assertEqual(status, "HTTP/1.1 200 OK")
+        self.assertIn("Content-Type: text/css", headers)
+        self.assertIn(b"prefers-color-scheme: dark", content)
+
     async def test_active_input(self):
         status, _, content = await self.request("POST /api/active_input/B HTTP/1.1\r\n")
         self.assertEqual(status, "HTTP/1.1 200 OK")
-        self.assertEqual(content, {"active_input": {"B": Config.inputs["B"]}})
+        self.assertEqual(content, {"active_input": {"B": Config.inputs["B"]}, "switching": None, "error": None})
         self.assertEqual(Config.devices[0].inputs, ["B"])
         status, _, content = await self.request("GET /api/active_input HTTP/1.1\r\n")
-        self.assertEqual(content, {"active_input": {"B": Config.inputs["B"]}})
+        self.assertEqual(content, {"active_input": {"B": Config.inputs["B"]}, "switching": None, "error": None})
 
     async def test_unknown(self):
         self.assertEqual((await self.request("GET /nowhere HTTP/1.1\r\n"))[0], "HTTP/1.1 404 Not Found")
@@ -96,9 +109,38 @@ class WebServerTest(TestCase):
         self.assertEqual((await self.request("PUT /api/update HTTP/1.1\r\n"))[0], "HTTP/1.1 405 Method Not Allowed")
         self.assertEqual((await self.request("garbage\r\n"))[0], "HTTP/1.1 400 Bad Request")
 
+    async def test_events(self):
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"GET /api/events HTTP/1.1\r\n\r\n")
+        writer = Writer()
+        stream = asyncio.ensure_future(self.server.handle_client(reader, writer))
+        await asyncio.sleep(0.05)
+        await self.server.controller.set_active_input("B")
+        await asyncio.sleep(0.05)
+        head, _, body = writer.data.partition(b"\r\n\r\n")
+        self.assertIn(b"Content-Type: text/event-stream", head)
+        events = [json.loads(line[6:]) for line in body.split(b"\n\n") if line]
+        self.assertEqual([(list(event["active_input"]), event["switching"] and list(event["switching"])) for event in events], [(["A"], None), (["A"], ["B"]), (["B"], None)])
+
+        self.server._EVENT_INTERVAL = 0.05  # The state is sent again while nothing changes
+        self.server.controller._notify()  # Ends the current, longer wait
+        await asyncio.sleep(0.3)
+        self.assertGreater(writer.data.count(b"data: "), 3)
+
+        async def gone():
+            raise OSError("ECONNRESET")
+
+        writer.drain = gone  # The page closes: the stream ends quietly
+        await asyncio.wait_for(stream, 1)
+        self.assertEqual(self.server._event_streams, 0)
+
+    async def test_events_limit(self):
+        self.server._event_streams = self.server._MAX_EVENT_STREAMS
+        self.assertEqual((await self.request("GET /api/events HTTP/1.1\r\n"))[0], "HTTP/1.1 503 Service Unavailable")
+
     async def test_paths(self):
         self.assertEqual((await self.request("POST /api/active_input/B/ HTTP/1.1\r\n"))[0], "HTTP/1.1 200 OK")
-        self.assertEqual((await self.request("POST /api/active_input/ HTTP/1.1\r\n"))[2], {"active_input": {"A": Config.inputs["A"]}})  # Toggles
+        self.assertEqual((await self.request("POST /api/active_input/ HTTP/1.1\r\n"))[2]["active_input"], {"A": Config.inputs["A"]})  # Toggles
         self.assertEqual((await self.request("POST /api/active_input/C HTTP/1.1\r\n"))[0], "HTTP/1.1 404 Not Found")
         self.assertEqual((await self.request("GET /api/active_input/A HTTP/1.1\r\n"))[0], "HTTP/1.1 405 Method Not Allowed")
         self.assertEqual((await self.request("GET /api/update/ HTTP/1.1\r\n"))[0], "HTTP/1.1 200 OK")
@@ -114,6 +156,32 @@ class WebServerTest(TestCase):
         self.assertEqual((status, content), ("HTTP/1.1 500 Internal Server Error", {"message": "flash failure"}))
         status, _, _ = await self.request("GET / HTTP/1.1", b"\xff\r\n\r\n")  # Undecodable header: the connection is dropped
         self.assertEqual(status, "")
+
+    async def test_config(self):
+        self.assertEqual((await self.request("GET /api/config HTTP/1.1\r\n"))[0], "HTTP/1.1 401 Unauthorized")
+        status, _, content = await self.request("GET /api/config HTTP/1.1\r\n" + credentials("secret"))
+        self.assertEqual(status, "HTTP/1.1 200 OK")
+        self.assertEqual(content, Config.public())
+
+        def post(body):
+            return self.request(f"POST /api/config HTTP/1.1\r\nContent-Length: {len(body)}\r\n" + credentials("secret"), body)
+
+        from test_config import settings
+
+        Config.wireless_network = {"SSID": "home", "hostname": "picokvm", "password": "wifi"}  # As settings() has it
+        status, _, content = await post(json.dumps(settings()).encode())
+        self.assertEqual((status, content), ("HTTP/1.1 200 OK", {"message": "Saved", "restart": False}))
+        self.assertEqual(self.restarts, 0)
+        status, _, content = await post(json.dumps(settings(wireless_network={"SSID": "other", "hostname": "kvm"})).encode())
+        self.assertEqual(content, {"message": "Saved, restarting", "restart": True})
+        await asyncio.sleep(0)
+        self.assertEqual(self.restarts, 1)
+        self.assertEqual((await post(b"{not json"))[0], "HTTP/1.1 400 Bad Request")
+        status, _, content = await post(json.dumps(settings(led_idle_brightness=5)).encode())
+        self.assertEqual((status, content["message"]), ("HTTP/1.1 400 Bad Request", "LED brightness: from 0 to 1"))
+        self.assertEqual((await post(b" " * 20000))[0], "HTTP/1.1 413 Content Too Large")
+        status, _, _ = await self.request("POST /api/config HTTP/1.1\r\n" + credentials("secret"))
+        self.assertEqual(status, "HTTP/1.1 411 Length Required")
 
     async def test_metrics(self):
         status, _, content = await self.request("GET /metrics HTTP/1.1\r\n")

@@ -28,6 +28,12 @@ def connect():
     network.hostname(Config.wireless_network["hostname"])
     wlan.active(True)
     wlan.config(pm=network.WLAN.PM_NONE)
+    if wlan.isconnected():  # A soft reboot (Ctrl-D, Thonny) restarts MicroPython but not the Wi-Fi driver
+        return wlan
+    try:
+        wlan.disconnect()  # Ends an attempt still in progress: connecting during one fails with "Wifi Internal State Error"
+    except OSError:
+        pass
     wlan.connect(Config.wireless_network["SSID"], Config.wireless_network["password"])
     return wlan
 

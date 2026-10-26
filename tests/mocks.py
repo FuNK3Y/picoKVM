@@ -148,8 +148,17 @@ class WLAN:
     def config(self, **settings):
         pass
 
+    connecting = False  # As the ESP32's Wi-Fi driver, whose state outlives a soft reboot
+    connects = 0
+
     def connect(self, ssid, password):
-        self.ssid = ssid
+        if WLAN.connecting or WLAN.connected:
+            raise OSError("Wifi Internal State Error")
+        WLAN.connecting = True
+        WLAN.connects += 1
+
+    def disconnect(self):
+        WLAN.connecting = WLAN.connected = False
 
     def isconnected(self):
         return WLAN.connected
@@ -281,6 +290,8 @@ class TestCase(unittest.IsolatedAsyncioTestCase):
         Pin.levels.clear()
         Pin.history.clear()
         WLAN.connected = True
+        WLAN.connecting = False
+        WLAN.connects = 0
         SoftI2C.writes.clear()
         for recorded in (ClientSession.served, ClientSession.requests, ClientSession.connections, ClientSession.received, ClientSession.sent):
             recorded.clear()

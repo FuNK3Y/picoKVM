@@ -2,7 +2,9 @@ import asyncio
 import binascii
 import json
 import sys
+import config_html
 import index_html
+import style_css
 from config import Config
 
 
@@ -15,6 +17,10 @@ class Request:
 
 
 class WebServer:
+    _MAX_EVENT_STREAMS = 4  # Each open page holds a socket
+    _EVENT_INTERVAL = 20  # s: the state is sent again at least this often, which also finds the pages gone
+    _MAX_CONFIG_SIZE = 16384  # bytes
+
     def __init__(self, controller, metrics_provider, updater):
         self.metrics_provider = metrics_provider
         self.controller = controller
@@ -22,16 +28,22 @@ class WebServer:
         self._single_page_content = index_html.content.replace("{{hostname}}", Config.wireless_network["hostname"])
         self._routes = {
             ("GET", "/"): self.single_page,
+            ("GET", "/config"): self.config_page,
+            ("GET", "/style.css"): self.stylesheet,
             ("GET", "/metrics"): self.metrics,
             ("GET", "/api/active_input"): self.get_active_input,
             ("POST", "/api/active_input"): self.set_active_input,  # Toggles
             ("POST", "/api/active_input/<input>"): self.set_active_input,
+            ("GET", "/api/events"): self.events,
+            ("GET", "/api/config"): self.get_config,
+            ("POST", "/api/config"): self.set_config,
             ("GET", "/api/update"): self.get_update,
             ("POST", "/api/update"): self.upload_update,
             ("GET", "/api/update/latest"): self.get_latest_release,
             ("POST", "/api/update/latest"): self.install_latest_release,
         }
-        self._protected = {("POST", "/api/update"), ("POST", "/api/update/latest")}  # Require admin_password
+        self._event_streams = 0
+        self._protected = {("GET", "/config"), ("GET", "/api/config"), ("POST", "/api/config"), ("POST", "/api/update"), ("POST", "/api/update/latest")}  # Require admin_password
 
     async def handle_client(self, reader, writer):
         try:
@@ -46,6 +58,8 @@ class WebServer:
                     headers[name.strip().lower()] = value.strip()
                 await self.route(reader, writer, request_line, headers)
                 await writer.drain()
+        except OSError:  # The client went away
+            pass
         except Exception as e:
             print("Error with client handing:", e)
             sys.print_exception(e)
@@ -102,12 +116,39 @@ class WebServer:
     async def single_page(self, request):
         self.write_response(request.writer, "200 OK", self._single_page_content, "text/html")
 
+    async def config_page(self, request):
+        self.write_response(request.writer, "200 OK", config_html.content, "text/html")
+
+    async def stylesheet(self, request):
+        self.write_response(request.writer, "200 OK", style_css.content, "text/css")
+
     async def metrics(self, request):
         self.write_response(request.writer, "200 OK", self.metrics_provider.metrics(), "text/plain")
 
     async def get_active_input(self, request):
-        input = self.controller.selected_input
-        self.json_response(request.writer, "200 OK", {"active_input": {input: Config.inputs[input]}})
+        self.json_response(request.writer, "200 OK", self.controller.state())
+
+    async def events(self, request):
+        """Server-sent events: the controller's state, on every change."""
+        if self._event_streams >= self._MAX_EVENT_STREAMS:
+            self.error(request.writer, "503 Service Unavailable", "Too many open pages")
+            return
+        self._event_streams += 1
+        writer = request.writer
+        try:
+            writer.write("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n")
+            while True:
+                changed = self.controller.changed  # Before sending the state, not to miss a change in between
+                writer.write(f"data: {json.dumps(self.controller.state())}\n\n")
+                await writer.drain()
+                try:
+                    await asyncio.wait_for(changed.wait(), self._EVENT_INTERVAL)
+                except asyncio.TimeoutError:
+                    pass
+        except OSError:  # The page is gone
+            pass
+        finally:
+            self._event_streams -= 1
 
     async def set_active_input(self, request):
         try:
@@ -116,6 +157,27 @@ class WebServer:
             self.error(request.writer, "500 Internal Server Error", str(e))
         else:
             await self.get_active_input(request)
+
+    async def get_config(self, request):
+        self.json_response(request.writer, "200 OK", Config.public())
+
+    async def set_config(self, request):
+        try:
+            size = int(request.headers["content-length"])
+        except (KeyError, ValueError):
+            self.error(request.writer, "411 Length Required", "Content-Length required")
+            return
+        if size > self._MAX_CONFIG_SIZE:
+            self.error(request.writer, "413 Content Too Large", f"At most {self._MAX_CONFIG_SIZE} bytes")
+            return
+        try:
+            restart = Config.apply(json.loads(await request.reader.readexactly(size)))
+        except ValueError as e:  # Invalid JSON too
+            self.error(request.writer, "400 Bad Request", str(e))
+            return
+        self.json_response(request.writer, "200 OK", {"message": "Saved, restarting" if restart else "Saved", "restart": restart})
+        if restart:  # The Wi-Fi settings only apply at start-up
+            asyncio.create_task(self.updater.restart())
 
     async def get_update(self, request):
         self.json_response(request.writer, "200 OK", {"version": self.updater.version, "status": self.updater.status})

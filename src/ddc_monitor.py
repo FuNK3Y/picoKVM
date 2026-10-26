@@ -24,6 +24,10 @@ class DdcMonitor(Device):
         self.power_on = power_on
         self.power_on_delay = power_on_delay
         self.freq = freq
+        if hdmi not in board.HDMI_DDC:
+            raise ValueError(f"no HDMI port {hdmi}")
+        if sorted(inputs) != ["A", "B"] or not all(isinstance(value, int) for value in inputs.values()):
+            raise ValueError("inputs: an MCCS value for A and for B")
         sda, scl = board.HDMI_DDC[hdmi]
         self._i2c = SoftI2C(sda=Pin(sda), scl=Pin(scl), freq=freq)
 
