@@ -36,7 +36,7 @@ content = r"""<!DOCTYPE html>
             font-size: 14px;
         }
 
-        input:not([type=checkbox]):not([type=color]),
+        input:not([type=checkbox]):not([type=color]):not([type=range]),
         select,
         textarea {
             display: block;
@@ -49,6 +49,12 @@ content = r"""<!DOCTYPE html>
             background: var(--background);
             color: var(--text);
             font: inherit;
+        }
+
+        input[type=range] {
+            display: block;
+            width: 100%;
+            margin: 8px 0 0;
         }
 
         textarea {
