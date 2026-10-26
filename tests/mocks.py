@@ -3,6 +3,7 @@
 Importing this module installs them in sys.modules, adds MicroPython's time.ticks_*, and puts src/ on sys.path.
 """
 
+import asyncio
 import gc
 import json
 import os
@@ -168,7 +169,7 @@ class WLAN:
 
 
 class ClientSession:
-    """aiohttp.ClientSession, answering GETs from `served`: {url: (status, body bytes)}, recording the other requests
+    """aiohttp.ClientSession, answering GETs from `served`: {url: (status, body bytes[, headers])}, recording the other requests
     and the websocket connections, whose messages come from `received` and go to `sent`."""
 
     served = {}
@@ -187,8 +188,18 @@ class ClientSession:
         pass
 
     def get(self, url):
-        status, body = ClientSession.served[url]
+        status, body = ClientSession.served[url][:2]
         return _Context(_Response(status, body))
+
+    async def request_raw(self, method, url, headers={}):
+        """The response as it comes from the socket: status line, headers, body."""
+        ClientSession.requests.append((method, url, {"headers": dict(headers)}))
+        status, body, *response_headers = ClientSession.served[url]
+        response_headers = "".join(f"{name}: {value}\r\n" for name, value in (response_headers[0] if response_headers else {}).items())
+        stream = _Stream()
+        stream.feed_data(f"HTTP/1.0 {status} Status\r\n{response_headers}\r\n".encode() + body)
+        stream.feed_eof()
+        return stream
 
     def request(self, method, url, **kwargs):
         ClientSession.requests.append((method, url, kwargs))
@@ -207,6 +218,15 @@ class _WebSocket:
         ClientSession.sent.append(message)
 
 
+class _Stream(asyncio.StreamReader):
+    """MicroPython's asyncio stream: read(n) returns up to n bytes, and aclose() closes it."""
+
+    closed = 0
+
+    async def aclose(self):
+        _Stream.closed += 1
+
+
 class _Context:
     def __init__(self, response):
         self.response = response
@@ -222,19 +242,12 @@ class _Response:
     def __init__(self, status, body):
         self.status = status
         self.body = body
-        self.position = 0
 
     async def json(self):
         return json.loads(self.body)
 
     async def text(self):
         return self.body.decode()
-
-    async def read(self, size):  # As aiohttp: exactly size bytes
-        if self.position + size > len(self.body):
-            raise EOFError
-        self.position += size
-        return self.body[self.position - size : self.position]
 
 
 module("machine", Pin=Pin, WDT=WDT, SoftI2C=SoftI2C, reset=reset)
