@@ -82,6 +82,12 @@ class WebServerTest(TestCase):
         self.assertEqual(status, "HTTP/1.1 200 OK")
         self.assertIn(b"<title>kvm</title>", content)
 
+    async def test_stylesheet(self):
+        status, headers, content = await self.request("GET /style.css HTTP/1.1\r\n")
+        self.assertEqual(status, "HTTP/1.1 200 OK")
+        self.assertIn("Content-Type: text/css", headers)
+        self.assertIn(b"prefers-color-scheme: dark", content)
+
     async def test_active_input(self):
         status, _, content = await self.request("POST /api/active_input/B HTTP/1.1\r\n")
         self.assertEqual(status, "HTTP/1.1 200 OK")

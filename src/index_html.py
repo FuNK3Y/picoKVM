@@ -6,14 +6,13 @@ content = r"""<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{hostname}}</title>
+    <link rel="stylesheet" href="/style.css">
     <style>
         body {
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            margin: 0;
-            font-family: Arial, sans-serif;
         }
 
         .button-container {
@@ -22,22 +21,6 @@ content = r"""<!DOCTYPE html>
 
         .firmware {
             margin-top: 20px;
-            font-size: 14px;
-            color: #666;
-        }
-
-        .link-button {
-            border: none;
-            background: none;
-            color: #92A5B4;
-            cursor: pointer;
-            font-size: 14px;
-            text-decoration: underline;
-        }
-
-        .link-button:disabled {
-            cursor: default;
-            text-decoration: none;
         }
 
         .api-button {
@@ -45,7 +28,7 @@ content = r"""<!DOCTYPE html>
             font-size: 20px;
             cursor: pointer;
             border: none;
-            background-color: #92A5B4;
+            background-color: var(--accent);
             color: white;
             border-radius: 5px;
         }
@@ -65,7 +48,7 @@ content = r"""<!DOCTYPE html>
                 document.querySelector('.api-button').style.backgroundColor = data.active_input[input].color;
             } else {
                 document.querySelector('#button-text').innerText = 'Error: ' + data.message;
-                document.querySelector('.api-button').style.backgroundColor = '#ff2d00';
+                document.querySelector('.api-button').style.backgroundColor = 'var(--error)';
             }
         }
 
@@ -135,7 +118,7 @@ content = r"""<!DOCTYPE html>
         <button class="api-button" onclick="activeInput('set')">
             <span id="button-text">Loading...</span>
         </button>
-        <div class="firmware">
+        <div class="firmware muted">
             <span id="version"></span>
             <button id="update-button" class="link-button" onclick="update()">Check for updates</button>
         </div>

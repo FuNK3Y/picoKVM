@@ -3,6 +3,7 @@ import binascii
 import json
 import sys
 import index_html
+import style_css
 from config import Config
 
 
@@ -22,6 +23,7 @@ class WebServer:
         self._single_page_content = index_html.content.replace("{{hostname}}", Config.wireless_network["hostname"])
         self._routes = {
             ("GET", "/"): self.single_page,
+            ("GET", "/style.css"): self.stylesheet,
             ("GET", "/metrics"): self.metrics,
             ("GET", "/api/active_input"): self.get_active_input,
             ("POST", "/api/active_input"): self.set_active_input,  # Toggles
@@ -101,6 +103,9 @@ class WebServer:
 
     async def single_page(self, request):
         self.write_response(request.writer, "200 OK", self._single_page_content, "text/html")
+
+    async def stylesheet(self, request):
+        self.write_response(request.writer, "200 OK", style_css.content, "text/css")
 
     async def metrics(self, request):
         self.write_response(request.writer, "200 OK", self.metrics_provider.metrics(), "text/plain")
