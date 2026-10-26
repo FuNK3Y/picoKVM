@@ -18,9 +18,11 @@ micropython_dir="${MICROPY_DIR:-$build_dir/micropython}"
 if [ ! -d "$micropython_dir" ]; then
     git clone --depth 1 --branch "$MICROPYTHON_VERSION" https://github.com/micropython/micropython "$micropython_dir"
 fi
+mkdir -p "$build_dir"
 python3 "$firmware_dir/generate.py"
 make -C "$micropython_dir/mpy-cross"
-make -C "$micropython_dir/ports/esp32" BOARD_DIR="$firmware_dir/PICOKVM" BUILD="$build_dir/esp32" submodules
-make -C "$micropython_dir/ports/esp32" BOARD_DIR="$firmware_dir/PICOKVM" BUILD="$build_dir/esp32"
-cp "$build_dir/esp32/firmware.bin" "$build_dir/firmware.bin"
-cp "$build_dir/esp32/micropython.bin" "$build_dir/firmware-ota.bin"
+# Not BUILD=: make passes it on to the mpy-cross build that freezing runs, which then overwrites the port's headers
+make -C "$micropython_dir/ports/esp32" BOARD_DIR="$firmware_dir/PICOKVM" submodules
+make -C "$micropython_dir/ports/esp32" BOARD_DIR="$firmware_dir/PICOKVM"
+cp "$micropython_dir/ports/esp32/build-PICOKVM/firmware.bin" "$build_dir/firmware.bin"
+cp "$micropython_dir/ports/esp32/build-PICOKVM/micropython.bin" "$build_dir/firmware-ota.bin"
