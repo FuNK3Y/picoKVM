@@ -1,7 +1,5 @@
-"""Writes the build inputs derived from the repository to firmware/generated/:
-- index_html.py: src/index.html as a module, as frozen code cannot open files;
-- sdkconfig.version: the firmware version, stored in the image's application descriptor, where the
-  updater reads it (of the running firmware, and of an uploaded image before flashing it).
+"""Writes firmware/generated/sdkconfig.version: the firmware version, stored in the image's application descriptor,
+where the updater reads it (of the running firmware, and of an uploaded image before flashing it).
 
 The version is `git describe` of the repository, or $PICOKVM_VERSION when set.
 """
@@ -34,8 +32,6 @@ def version():
 
 
 os.makedirs(generated_dir, exist_ok=True)
-with open(os.path.join(root_dir, "src", "index.html")) as file:
-    write("index_html.py", f"content = {file.read()!r}\n")
 project_version = (VERSION_PREFIX + version())[:31]  # The descriptor holds 31 characters
 write(
     "sdkconfig.version",

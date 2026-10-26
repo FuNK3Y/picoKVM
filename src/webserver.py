@@ -19,7 +19,7 @@ class WebServer:
         self.metrics_provider = metrics_provider
         self.controller = controller
         self.updater = updater
-        self._single_page_content = index_html.content.replace("{{hostname}}", Config.wireless_network["hostname"])  # Generated from index.html by firmware/generate.py
+        self._single_page_content = index_html.content.replace("{{hostname}}", Config.wireless_network["hostname"])
         self._routes = {
             ("GET", "/"): self.single_page,
             ("GET", "/metrics"): self.metrics,

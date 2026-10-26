@@ -18,6 +18,5 @@ jobs:
       - name: Test
         run: |
           pip install coverage
-          python firmware/generate.py
           python -m coverage run --branch --source=src -m unittest discover -s tests -v
           python -m coverage report -m --fail-under=95

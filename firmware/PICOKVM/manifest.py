@@ -3,6 +3,5 @@ include("$(PORT_DIR)/boards/manifest.py")
 
 require("aiohttp")
 
-# The application, and the modules generate.py derives from it (the web page: frozen code cannot open files)
+# The application
 freeze("../../src")
-freeze("../generated")

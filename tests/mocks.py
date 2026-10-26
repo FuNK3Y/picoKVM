@@ -1,7 +1,6 @@
 """Stand-ins for the MicroPython modules the firmware imports, so that src/ runs on CPython.
 
-Importing this module installs them in sys.modules, adds MicroPython's time.ticks_*, and puts src/ and
-firmware/generated/ (run firmware/generate.py first) on sys.path.
+Importing this module installs them in sys.modules, adds MicroPython's time.ticks_*, and puts src/ on sys.path.
 """
 
 import gc
@@ -15,7 +14,7 @@ import types
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path[:0] = [os.path.join(ROOT, "src"), os.path.join(ROOT, "firmware", "generated")]
+sys.path.insert(0, os.path.join(ROOT, "src"))
 sys.path.append(".frozen")  # MicroPython's entry for the frozen modules, which main.py moves first
 
 
