@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     container: espressif/idf:v5.5.2  # The ESP-IDF version firmware/build.sh's MicroPython supports
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # Tags, for the version (git describe)
 
@@ -29,7 +29,7 @@ jobs:
           . "$IDF_PATH/export.sh"
           firmware/build.sh
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: firmware
           path: |
@@ -38,7 +38,7 @@ jobs:
 
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             firmware/build/firmware.bin
