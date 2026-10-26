@@ -74,57 +74,8 @@ content = r"""<!DOCTYPE html>
         }
 
         async function showVersion() {
-            const response = await fetch('/api/update', { signal: AbortSignal.timeout(3000) }); // The device may be restarting
-            const data = await response.json();
-            document.querySelector('#version').innerText = 'Firmware ' + data.version + (data.status ? ' (' + data.status + ')' : '');
-        }
-
-        let latest = null;
-
-        // First click: check for an update. Second click: install it (the browser asks for the admin password)
-        async function update() {
-            const button = document.querySelector('#update-button');
-            button.disabled = true;
-            try {
-                if (!latest) {
-                    button.innerText = 'Checking...';
-                    const response = await fetch('/api/update/latest');
-                    const data = await response.json();
-                    if (!response.ok)
-                        throw new Error(data.message);
-                    if (!data.update_available) {
-                        button.innerText = 'Up to date';
-                        return;
-                    }
-                    latest = data.latest;
-                    button.innerText = 'Update to ' + latest;
-                    button.disabled = false;
-                    return;
-                }
-                button.innerText = 'Updating to ' + latest + '...';
-                const response = await fetch('/api/update/latest', { method: 'POST' });
-                const data = await response.json();
-                if (!response.ok)
-                    throw new Error(data.message);
-                button.innerText = 'Restarting...';
-                await new Promise(resolve => setTimeout(resolve, 5000));
-                for (let attempt = 0; attempt < 60; attempt++) { // Up to the end of the update's trial boot
-                    try {
-                        await showVersion();
-                        button.innerText = 'Check for updates';
-                        latest = null;
-                        button.disabled = false;
-                        return;
-                    } catch (e) {
-                        await new Promise(resolve => setTimeout(resolve, 3000));
-                    }
-                }
-                throw new Error('the device did not come back');
-            } catch (e) {
-                latest = null;
-                button.innerText = 'Update failed: ' + e.message;
-                button.disabled = false;
-            }
+            const response = await fetch('/api/update');
+            document.querySelector('#version').innerText = 'Firmware ' + (await response.json()).version;
         }
 
         window.onload = () => {
@@ -139,8 +90,7 @@ content = r"""<!DOCTYPE html>
         <button class="api-button" onclick="toggle()">Loading...</button>
         <div id="error" class="error"></div>
         <div class="firmware muted">
-            <span id="version"></span>
-            <button id="update-button" class="link-button" onclick="update()">Check for updates</button>
+            <span id="version"></span> &middot; <a href="/config">Settings</a>
         </div>
     </div>
 </body>

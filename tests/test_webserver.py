@@ -82,6 +82,13 @@ class WebServerTest(TestCase):
         self.assertEqual(status, "HTTP/1.1 200 OK")
         self.assertIn(b"<title>kvm</title>", content)
 
+    async def test_config_page(self):
+        self.assertEqual((await self.request("GET /config HTTP/1.1\r\n"))[0], "HTTP/1.1 401 Unauthorized")
+        status, headers, content = await self.request("GET /config HTTP/1.1\r\n" + credentials("secret"))
+        self.assertEqual(status, "HTTP/1.1 200 OK")
+        self.assertIn("Content-Type: text/html", headers)
+        self.assertIn(b"/api/config", content)
+
     async def test_stylesheet(self):
         status, headers, content = await self.request("GET /style.css HTTP/1.1\r\n")
         self.assertEqual(status, "HTTP/1.1 200 OK")

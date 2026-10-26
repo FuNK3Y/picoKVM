@@ -29,24 +29,8 @@ body {
     font-family: Arial, sans-serif;
 }
 
-a,
-.link-button {
+a {
     color: var(--accent);
-}
-
-.link-button {
-    border: none;
-    background: none;
-    padding: 0;
-    cursor: pointer;
-    font: inherit;
-    text-decoration: underline;
-}
-
-.link-button:disabled {
-    cursor: default;
-    text-decoration: none;
-    color: var(--muted);
 }
 
 .muted {

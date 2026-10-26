@@ -2,6 +2,7 @@ import asyncio
 import binascii
 import json
 import sys
+import config_html
 import index_html
 import style_css
 from config import Config
@@ -27,6 +28,7 @@ class WebServer:
         self._single_page_content = index_html.content.replace("{{hostname}}", Config.wireless_network["hostname"])
         self._routes = {
             ("GET", "/"): self.single_page,
+            ("GET", "/config"): self.config_page,
             ("GET", "/style.css"): self.stylesheet,
             ("GET", "/metrics"): self.metrics,
             ("GET", "/api/active_input"): self.get_active_input,
@@ -41,7 +43,7 @@ class WebServer:
             ("POST", "/api/update/latest"): self.install_latest_release,
         }
         self._event_streams = 0
-        self._protected = {("GET", "/api/config"), ("POST", "/api/config"), ("POST", "/api/update"), ("POST", "/api/update/latest")}  # Require admin_password
+        self._protected = {("GET", "/config"), ("GET", "/api/config"), ("POST", "/api/config"), ("POST", "/api/update"), ("POST", "/api/update/latest")}  # Require admin_password
 
     async def handle_client(self, reader, writer):
         try:
@@ -113,6 +115,9 @@ class WebServer:
 
     async def single_page(self, request):
         self.write_response(request.writer, "200 OK", self._single_page_content, "text/html")
+
+    async def config_page(self, request):
+        self.write_response(request.writer, "200 OK", config_html.content, "text/html")
 
     async def stylesheet(self, request):
         self.write_response(request.writer, "200 OK", style_css.content, "text/css")
