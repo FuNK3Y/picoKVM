@@ -265,4 +265,9 @@ The API is plain HTTP: anyone able to watch your network traffic can read the pa
 . $IDF_PATH/export.sh
 firmware/build.sh
 ```
+The tests run the application on CPython, with stand-ins for the board ([`tests/mocks.py`](tests/mocks.py)):
+```sh
+python3 firmware/generate.py
+python3 -m unittest discover -s tests
+```
 GitHub Actions runs the same build on every push and keeps the images as an artifact of the run, so a change can be tried on the board without a local ESP-IDF. Pushing a `v*` tag publishes them as a release. The version is `git describe` of the commit.
