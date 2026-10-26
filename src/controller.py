@@ -17,11 +17,26 @@ class Controller:
         Pin(board.USB_ENABLE, Pin.OUT, value=0)  # The data switches are off until enabled
         self._peripheral_power = Pin(board.PERIPHERAL_POWER, Pin.OUT, value=1)  # The peripheral port is unpowered at reset
         self._leds = [neopixel.NeoPixel(Pin(pin, Pin.OUT), 1) for pin in board.LEDS]
+        self.switching = None  # The input being switched to
+        self.error = None  # Why the last switch failed
+        self.changed = asyncio.Event()  # Set, then replaced, on every change of state()
         self._show_idle()
 
     @property
     def selected_input(self):
         return "A" if self._usb_select.value() == 0 else "B"
+
+    def state(self):
+        input = self.selected_input
+        return {
+            "active_input": {input: Config.inputs[input]},
+            "switching": {self.switching: Config.inputs[self.switching]} if self.switching else None,
+            "error": self.error,
+        }
+
+    def _notify(self):
+        changed, self.changed = self.changed, asyncio.Event()
+        changed.set()
 
     def _set_leds(self, rgb):
         for led in self._leds:
@@ -60,6 +75,9 @@ class Controller:
             if not input:
                 input = "A" if self.selected_input == "B" else "B"
             blink_led_task = asyncio.create_task(blink_led(self._rgb(input)))
+            self.switching = input
+            self.error = None
+            self._notify()
             try:
                 for attempt in range(self._switch_attempts):
                     gc.collect()  # A failed wrap_socket strands a connected socket; only its finaliser returns it to the ESP-IDF heap
@@ -78,7 +96,12 @@ class Controller:
                             await asyncio.gather(task, return_exceptions=True)
                 Config.save()  # In order to persist tokens
                 await self._select_usb(input)
+            except Exception as e:
+                self.error = str(e)
+                raise
             finally:
                 blink_led_task.cancel()
                 await asyncio.gather(blink_led_task, return_exceptions=True)
+                self.switching = None
                 self._show_idle()
+                self._notify()

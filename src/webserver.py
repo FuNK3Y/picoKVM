@@ -16,6 +16,9 @@ class Request:
 
 
 class WebServer:
+    _MAX_EVENT_STREAMS = 4  # Each open page holds a socket
+    _EVENT_INTERVAL = 20  # s: the state is sent again at least this often, which also finds the pages gone
+
     def __init__(self, controller, metrics_provider, updater):
         self.metrics_provider = metrics_provider
         self.controller = controller
@@ -28,11 +31,13 @@ class WebServer:
             ("GET", "/api/active_input"): self.get_active_input,
             ("POST", "/api/active_input"): self.set_active_input,  # Toggles
             ("POST", "/api/active_input/<input>"): self.set_active_input,
+            ("GET", "/api/events"): self.events,
             ("GET", "/api/update"): self.get_update,
             ("POST", "/api/update"): self.upload_update,
             ("GET", "/api/update/latest"): self.get_latest_release,
             ("POST", "/api/update/latest"): self.install_latest_release,
         }
+        self._event_streams = 0
         self._protected = {("POST", "/api/update"), ("POST", "/api/update/latest")}  # Require admin_password
 
     async def handle_client(self, reader, writer):
@@ -111,8 +116,29 @@ class WebServer:
         self.write_response(request.writer, "200 OK", self.metrics_provider.metrics(), "text/plain")
 
     async def get_active_input(self, request):
-        input = self.controller.selected_input
-        self.json_response(request.writer, "200 OK", {"active_input": {input: Config.inputs[input]}})
+        self.json_response(request.writer, "200 OK", self.controller.state())
+
+    async def events(self, request):
+        """Server-sent events: the controller's state, on every change."""
+        if self._event_streams >= self._MAX_EVENT_STREAMS:
+            self.error(request.writer, "503 Service Unavailable", "Too many open pages")
+            return
+        self._event_streams += 1
+        writer = request.writer
+        try:
+            writer.write("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n")
+            while True:
+                changed = self.controller.changed  # Before sending the state, not to miss a change in between
+                writer.write(f"data: {json.dumps(self.controller.state())}\n\n")
+                await writer.drain()
+                try:
+                    await asyncio.wait_for(changed.wait(), self._EVENT_INTERVAL)
+                except asyncio.TimeoutError:
+                    pass
+        except OSError:  # The page is gone
+            pass
+        finally:
+            self._event_streams -= 1
 
     async def set_active_input(self, request):
         try:
