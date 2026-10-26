@@ -70,6 +70,8 @@ class Updater:
 
         read(n) returns up to n bytes of the image, which is size bytes long. Returns the image's version.
         """
+        if self._trial:  # The other slot holds the previous firmware, the one to roll back to
+            raise ValueError("The running update is still on trial: retry once it is confirmed")
         slot = Partition(Partition.RUNNING).get_next_update()
         if not 0 < size <= slot.info()[3]:
             raise ValueError(f"An image of {size} bytes does not fit the {slot.info()[3]} bytes of the slot")
@@ -161,6 +163,7 @@ class Updater:
         os.remove(self._STATE_FILE)
         self.status = f"Updated from {self._trial.get('from')} to {self.version}"
         print(self.status)
+        self._trial = None
         while True:  # The watchdog cannot be stopped
             self._watchdog.feed()
             await asyncio.sleep(5)
