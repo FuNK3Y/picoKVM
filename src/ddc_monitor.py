@@ -1,4 +1,5 @@
 import asyncio
+import board
 from machine import Pin, SoftI2C
 from device import Device
 
@@ -16,15 +17,15 @@ class DdcMonitor(Device):
     _VCP_INPUT_SOURCE = 0x60
     _VCP_POWER_MODE = 0xD6
 
-    def __init__(self, sda_gpio_pin, scl_gpio_pin, inputs, power_on=False, power_on_delay=2.0, freq=50000):
+    def __init__(self, hdmi, inputs, power_on=False, power_on_delay=2.0, freq=50000):
         super().__init__()
-        self.sda_gpio_pin = sda_gpio_pin
-        self.scl_gpio_pin = scl_gpio_pin
+        self.hdmi = hdmi
         self.inputs = inputs
         self.power_on = power_on
         self.power_on_delay = power_on_delay
         self.freq = freq
-        self._i2c = SoftI2C(sda=Pin(sda_gpio_pin), scl=Pin(scl_gpio_pin), freq=freq)
+        sda, scl = board.HDMI_DDC[hdmi]
+        self._i2c = SoftI2C(sda=Pin(sda), scl=Pin(scl), freq=freq)
 
     def _set_vcp(self, code, value):
         message = bytes([self._SOURCE, 0x84, 0x03, code, (value >> 8) & 0xFF, value & 0xFF])
@@ -34,7 +35,7 @@ class DdcMonitor(Device):
         try:
             self._i2c.writeto(self._ADDRESS, message + bytes([checksum]))
         except OSError as e:  # NACK: no monitor on this port, DDC/CI disabled in its menu, or monitor fully off
-            raise OSError(f"DDC/CI write to the monitor on SDA {self.sda_gpio_pin} failed: {e}")
+            raise OSError(f"DDC/CI write to the monitor on HDMI {self.hdmi} failed: {e}")
 
     async def set_active_input(self, input):
         if self.power_on:

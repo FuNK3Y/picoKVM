@@ -1,0 +1,8 @@
+# 8 MiB flash: the picoKVM board's ESP32-S3-WROOM-1-N8R2
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+
+# Two 2.4 MiB application slots (ota_0, ota_1): an update is written to the slot not running.
+# MicroPython puts the filesystem in the rest of the flash (~3 MiB).
+# Rollback of an update that is not confirmed is enabled by MicroPython's sdkconfig.base.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions-8MiBplus-ota.csv"

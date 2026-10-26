@@ -14,73 +14,61 @@ The networking enables some unique features:
 - You can control the KVM from any device on the same network (phone, tablet, computer, ...)
 
 ## How does it works
-The KVM switches the USB devices between two computers and tells the monitors to change input at the same time. Monitors can be driven over the network (Samsung remote API, SmartThings or any HTTP API) or, with the picoKVM board, directly over HDMI DDC/CI.
+The KVM switches the USB devices between two computers and tells the monitors to change input at the same time. Monitors are driven directly over HDMI DDC/CI by the board, or over the network (Samsung remote API, SmartThings or any HTTP API).
 
 With the Samsung remote API, the KVM uses the Samsung remote API (https://samsungtv:8002/api/v2/) to inject key presses in order to change inputs. As on my monitors (G80SD & M70d) there is sadly no key directly mapped to inputs (like `KEY_DISPLAYPORT`, `KEY_HDMI1`). I had to build a sequence of key presses starting from the home screen. The interface is snappy enough to smoothen up this downside.
 
 Another alternative would be to use the [SmartThings REST API](https://github.com/ollo69/ha-samsungtv-smart/issues/274#issuecomment-2597627685) - as this API allows for direct input selection. 
 
 ## Hardware setup
+The firmware runs on the picoKVM board only. The original build (M5Stack AtomS3 Lite + USB multiplexer) is not supported anymore: the last version supporting it is [5d5997c](https://github.com/FuNK3Y/picoKVM/tree/5d5997c), installed by copying the files to the board.
 
-### picoKVM board (recommended)
 A dedicated board, designed in this repository ([`hardware/`](hardware/README.md)): an ESP32-S3 module, a USB 3.0 switch (two USB-B inputs for the computers, one USB-A port for the peripherals, including peripheral power switching and current limiting), two HDMI ports carrying DDC/CI only (no video) to switch monitor inputs, an RGB status LED, and a Grove port for an [M5Stack mechanical key unit](https://shop.m5stack.com/products/mechanical-key-button-unit) used as the switch button.
 
 ![picoKVM board](hardware/revA/img/iso.png)
 
-`config.example.json` is set up for this board (pin map in [hardware/README.md](hardware/README.md#firmware-contract)). Connect an HDMI cable from each HDMI port to a monitor whose input should follow the KVM, and enable DDC/CI in the monitor's menu.
-
-### M5Stack AtomS3 Lite + USB multiplexer
-The original build, still supported:
-- [m5stack AtomS3 Lite](https://shop.m5stack.com/products/atoms3-lite-esp32s3-dev-kit)
-- [A USB multiplexer](https://thepihut.com/products/bidirectional-usb-3-multiplexer)
-
-They need to be wired together (Ground, Signal over GPIO (`G1` by default))
-
-You can add a physical button, I went with [this one](https://shop.m5stack.com/products/mechanical-key-button-unit). Pick a GPIO port for the LED and the button and update the config accordingly. The defaults target the picoKVM board, so set the Atom's pins and disable the board-only settings in `config.json`:
-```json
-"usb_gpio_pin": "G1",
-"button_gpio_pin": "BUTTON",
-"led_gpio_pin": "LED_RGB",
-"usb_enable_gpio_pin": null,
-"peripheral_power_gpio_pin": null,
-"peripheral_fault_gpio_pin": null,
-"vbus_sense_gpio_pins": null
-```
+Its pin map is in [hardware/README.md](hardware/README.md#firmware-contract). Connect an HDMI cable from each HDMI port to a monitor whose input should follow the KVM, and enable DDC/CI in the monitor's menu.
 
 ## Software setup
-For the picoKVM board, flash the plain MicroPython `ESP32_GENERIC_S3` firmware through the AUX / FLASH USB-C port: hold BOOT, press RESET, release BOOT, then `esptool.py write_flash 0 ESP32_GENERIC_S3-<date>-<version>.bin` (offset 0 on the S3). That port is also the MicroPython REPL afterwards. The plain build detects the module's 2 MB quad PSRAM at boot; don't use the `SPIRAM_OCT` variant, which is for octal PSRAM.
+The firmware is MicroPython with this repository's code (`src/`) built in. Each [release](https://github.com/FuNK3Y/picoKVM/releases) has two files:
+- `firmware.bin`: the full image, flashed over USB;
+- `firmware-ota.bin`: the application alone, for [updates](#updates) over the network.
 
-Clone locally this repo and copy the files of this repository (not the `hardware/` folder) to your board ([Thonny](https://thonny.org/) works great for that). On top you need to install the additional package `aiohttp` (this can be done with Thonny as well).
+Flash `firmware.bin` over the board's AUX / FLASH USB-C port (hold BOOT, press RESET, release BOOT):
+```sh
+esptool.py erase_flash
+esptool.py write_flash 0 firmware.bin
+```
+Erase first: the flash layout (two application slots, for updates) is not the plain MicroPython one, and a leftover filesystem would not mount. This also wipes `config.json`: coming from an install that copied the files to the board, back it up first with `mpremote cp :config.json config.json`. The USB port is the MicroPython REPL afterwards.
 
-Copy `config.example.json` to `config.json` and adjust it with your settings. You need to configure at least your Wi-Fi credentials and the GPIO pin you connected the signal cable from the USB multiplexer to.
+Copy `config.example.json` to `config.json` and adjust it with your settings. You need to configure at least your Wi-Fi credentials and your monitors. Upload it to the board and restart it, e.g. with [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) (or [Thonny](https://thonny.org/)'s file view):
+```sh
+mpremote cp config.json :config.json + reset
+```
 
 `config.json` is deliberately not tracked by git: the device rewrites it at runtime to persist the monitor pairing token, so it ends up holding both that token and your Wi-Fi password.
 
 ### Settings
 
-Defaults are the picoKVM board's pins (as in `config.example.json`).
+The board's pins are fixed in the firmware ([`src/board.py`](src/board.py)). Besides `wireless_network`, `inputs` (name and LED color of each computer) and `devices` (the monitors, below):
 
 | key | what |
 |---|---|
-| `usb_gpio_pin` | USB select output: low = input `A`, high = input `B` |
-| `button_gpio_pin` | switch button, active low |
-| `led_gpio_pin` | SK6812/WS2812 data pin, or a list of pins (board: on-board LED and Grove key LED) |
 | `led_idle_brightness` | `0`: LEDs off after a switch; `0` to `1`: keep showing the active input's color at that brightness |
-| `usb_enable_gpio_pin` | board only: enables the USB data switches (active low, off until the firmware starts) |
-| `peripheral_power_gpio_pin` | board only: peripheral port power; cycled on each switch so the peripheral re-enumerates on the new computer |
-| `peripheral_fault_gpio_pin` | board only: peripheral over-current / over-temperature flag (reported in `/metrics`) |
-| `vbus_sense_gpio_pins` | board only: `{"A": pin, "B": pin}`, high while that computer powers its USB port (reported in `/metrics`) |
+| `admin_password` | required, as HTTP Basic credentials with any user name, by the API calls that change the device ([updates](#updates)); while empty, they are refused |
+| `update_repository` | GitHub repository whose latest release the device updates to (default `FuNK3Y/picoKVM`) |
 
-Then, you need to configure your monitor. On the picoKVM board, DDC/CI (below) needs no network. Otherwise, either make sure that IP remote is enabled *(Connection > Network > Expert Settings)* or configure SmartThings
+A `config.json` from an earlier version still loads: its pin settings are ignored. Only its `DdcMonitor` devices need `"hdmi": 1` (or `2`) in place of `sda_gpio_pin` / `scl_gpio_pin`.
 
-### DDC/CI (picoKVM board)
-Each HDMI port of the board is a `DdcMonitor` device: `sda_gpio_pin` / `scl_gpio_pin` are `1` / `2` for HDMI 1 and `4` / `5` for HDMI 2. `inputs` maps `A` and `B` to the VESA MCCS value of the monitor's input source (VCP `0x60`): commonly `15` (DisplayPort 1), `16` (DisplayPort 2), `17` (HDMI 1), `18` (HDMI 2). Some monitors use their own values: read VCP `0x60` with a DDC tool (`ddcutil getvcp 60` on Linux, *ControlMyMonitor* on Windows) while each input is active. `power_on` also sends power-on (VCP `0xD6`) first, for monitors that keep DDC/CI alive in standby.
+Then, you need to configure your monitor. DDC/CI (below) needs no network. Otherwise, either make sure that IP remote is enabled *(Connection > Network > Expert Settings)* or configure SmartThings
+
+### DDC/CI
+Each HDMI port of the board is a `DdcMonitor` device: `hdmi` is `1` or `2`. `inputs` maps `A` and `B` to the VESA MCCS value of the monitor's input source (VCP `0x60`): commonly `15` (DisplayPort 1), `16` (DisplayPort 2), `17` (HDMI 1), `18` (HDMI 2). Some monitors use their own values: read VCP `0x60` with a DDC tool (`ddcutil getvcp 60` on Linux, *ControlMyMonitor* on Windows) while each input is active. `power_on` also sends power-on (VCP `0xD6`) first, for monitors that keep DDC/CI alive in standby.
 
 ```json
 {
     "data": {
-        "sda_gpio_pin": 1,
-        "scl_gpio_pin": 2,
+        "hdmi": 1,
         "inputs": {"A": 15, "B": 17},
         "power_on": false
     },
@@ -168,7 +156,7 @@ I did not try it, but creating a device of type `GenericDevice` with [this paylo
 }
 ```
 
-### ESPHome (picoKVM board)
+### ESPHome
 The board can run [ESPHome](https://esphome.io) instead of this firmware, for a native Home Assistant integration. [esphome/picokvm.yaml](esphome/picokvm.yaml) is the board's core logic as an ESPHome package, built from stock components only:
 - the `Input` select moves the USB peripherals, power-cycling the peripheral port as the firmware does, and switches the monitors over DDC/CI (an `i2c_device` per HDMI port and a few-line lambda that sends VCP 0x60);
 - the button cycles the inputs, and the LEDs show the active input;
@@ -197,8 +185,8 @@ Add anything else the board should do in the same file; `!extend kvm_input` hook
 Here is how to connect everything together:
 - Connect computers directly to the monitors
 - Connect USB from the computers to the KVM
-- Connect keyboard & mouse to a USB switch - itself connected to the KVM
-- With the picoKVM board, connect its HDMI 1 / HDMI 2 ports to the monitors that should switch over DDC/CI (control only, the video still goes directly from the computers to the monitors)
+- Connect keyboard & mouse to a USB hub - itself connected to the KVM
+- Connect the board's HDMI 1 / HDMI 2 ports to the monitors that should switch over DDC/CI (control only, the video still goes directly from the computers to the monitors)
     - The USB hub in the schema can be the primary monitor's built-in hub. In the case of the G80SD it retains the capability to drive the smart features of the monitor with the keyboard & mouse
 
 ### Schema
@@ -225,7 +213,7 @@ The dashed link is the picoKVM board's HDMI port: it carries only DDC/CI to swit
 On top of the physical button, there are two ways to operate the KVM. You need to know the `$hostname` of the device to connect (default value is picokvm)
 
 ### Web page
-Simply connect to `http://$hostname.local` and press the only button.
+Simply connect to `http://$hostname.local` and press the button. Below it are the firmware version and its [updates](#updates).
 
 ### API
 Issue a `POST` request to `http://$hostname.local/api/active_input/A` or `B`.
@@ -239,4 +227,42 @@ Invoke-RestMethod -Method POST "http://$hostname.local/api/active_input/A"
 
 ### Troubleshooting
 Pressing the button for more than 10 seconds will reset the device
-`/metrics` provide memory related information and wifi signal strength (plus, on the picoKVM board, which computers power their USB port and the peripheral fault flag). It can be ingested by prometheus
+`/metrics` provide memory related information and wifi signal strength (plus which computers power their USB port, and the peripheral fault flag). It can be ingested by prometheus
+
+## Updates
+The firmware updates itself over the network, MicroPython included. Set `admin_password` in `config.json` first: updates are refused without it.
+
+The simplest is from the web page: *Check for updates* looks up the latest [release](https://github.com/FuNK3Y/picoKVM/releases), and *Update to …* installs it (the browser asks for the password). The same through the API:
+```sh
+curl http://$hostname.local/api/update/latest                                     # {"version": ..., "latest": ..., "update_available": ...}
+curl -u admin:<admin_password> -X POST http://$hostname.local/api/update/latest   # downloads and installs it
+```
+
+Or upload `firmware-ota.bin`, from a [release](https://github.com/FuNK3Y/picoKVM/releases) or from the artifact of any [GitHub Actions run](https://github.com/FuNK3Y/picoKVM/actions/workflows/firmware.yml):
+```sh
+curl -u admin:<admin_password> --data-binary @firmware-ota.bin http://$hostname.local/api/update
+```
+```powershell
+Invoke-RestMethod -Method POST -InFile firmware-ota.bin -Authentication Basic -Credential (Get-Credential) -AllowUnencryptedAuthentication "http://$hostname.local/api/update"
+```
+The image is written next to the running firmware, checked, and the device restarts into it. Images that are not picoKVM firmware are refused before anything is written. `config.json` is kept.
+
+The first boot of an update is a trial: the update is kept once the device is back on Wi-Fi with its web server up. If it is not within 2 minutes, or if it crashes or hangs (a watchdog runs during the trial), the device goes back to the previous firmware. `GET /api/update` gives the running version and the outcome of the last update; `/metrics` has the version too (`picokvm_info`).
+
+Updates cannot change the bootloader or the flash layout: that, like recovering a board, takes flashing `firmware.bin` over USB ([Software setup](#software-setup)).
+
+The API is plain HTTP: anyone able to watch your network traffic can read the password as it is sent. Likewise, the device downloads releases without checking GitHub's certificate (MicroPython has no certificate store); the SHA-256 GitHub publishes for the image only guards against a corrupted download.
+
+## Building the firmware
+[`firmware/build.sh`](firmware/build.sh) builds both images into `firmware/build/`: MicroPython's generic ESP32-S3 configuration, with two application slots and the content of `src/` frozen in (the board definition is [`firmware/PICOKVM`](firmware/PICOKVM)). It needs [ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32s3/get-started/) v5.5.2:
+```sh
+. $IDF_PATH/export.sh
+firmware/build.sh
+```
+GitHub Actions runs the same build on every push and keeps the images as an artifact of the run, so a change can be tried on the board without a local ESP-IDF. Pushing a `v*` tag publishes them as a release. The version is `git describe` of the commit.
+
+The tests run the application on CPython, with stand-ins for the board ([`tests/mocks.py`](tests/mocks.py)):
+```sh
+python3 -m unittest discover -s tests
+```
+CI also measures their coverage of `src/` (`coverage run --branch --source=src -m unittest discover -s tests`), and fails under 95%.
