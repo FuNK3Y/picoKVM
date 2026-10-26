@@ -6,9 +6,10 @@ from config import Config
 
 
 class WebServer:
-    def __init__(self, controller, metrics_provider=None):
+    def __init__(self, controller, metrics_provider, updater):
         self.metrics_provider = metrics_provider
         self.controller = controller
+        self.updater = updater
         self._single_page_content = index_html.content  # Generated from index.html by firmware/generate.py
         for key, value in {"hostname": Config.wireless_network["hostname"]}.items():
             self._single_page_content = self._single_page_content.replace(f"{{{{{key}}}}}", value)
@@ -65,9 +66,10 @@ class WebServer:
             else:
                 self.write_response(writer, "404 Not Found", json.dumps({"message": "404 Not Found"}))
         elif method == "GET":
-            match = re.match(r"^/api/active_input/?$", path)
-            if match:
+            if re.match(r"^/api/active_input/?$", path):
                 self.write_response(writer, "200 OK", json.dumps({"active_input": {self.controller.selected_input: Config.inputs[self.controller.selected_input]}}))
+            elif re.match(r"^/api/update/?$", path):
+                self.write_response(writer, "200 OK", json.dumps({"version": self.updater.version, "status": self.updater.status}))
             else:
                 self.write_response(writer, "404 Not Found", json.dumps({"message": "404 Not Found"}))
         else:

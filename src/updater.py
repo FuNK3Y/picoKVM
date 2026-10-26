@@ -1,0 +1,78 @@
+import asyncio
+import json
+import machine
+import os
+import struct
+import time
+from esp32 import Partition
+
+
+class Updater:
+    """Over-the-air updates of the whole firmware (MicroPython and the application frozen in).
+
+    An update is written to the application slot not running, which the bootloader starts at the next reset.
+    That first boot is a trial: unless run() confirms it once the firmware is healthy, any reset (the
+    watchdog, a crash, a power cycle) brings the bootloader back to the previous firmware.
+    """
+
+    _STATE_FILE = "update.json"  # Written before restarting into an update: {"from": version, "to": version, "slot": label}
+    _VERSION_PREFIX = "picoKVM "  # firmware/generate.py: marks the images of this firmware
+    _WATCHDOG_TIMEOUT = 60000  # ms: generous, DNS lookups block the event loop
+    _TRIAL_TIMEOUT = 120  # s: for the new firmware to come up healthy
+
+    def __init__(self):
+        self.version = self.image_version(self._read_header(Partition(Partition.RUNNING)))
+        self.status = None  # Outcome of the last update, for the API
+        self._trial = None
+        self._watchdog = None
+        try:
+            with open(self._STATE_FILE) as file:
+                state = json.load(file)
+        except (OSError, ValueError):
+            return
+        if state.get("slot") == Partition(Partition.RUNNING).info()[4]:
+            self._trial = state
+            self._watchdog = machine.WDT(timeout=self._WATCHDOG_TIMEOUT)  # From here, a hang or a crash rolls the update back
+        else:  # The bootloader rolled the update back
+            self.status = f"Update to {state.get('to')} failed, rolled back to {self.version}"
+            print(self.status)
+            os.remove(self._STATE_FILE)
+
+    @staticmethod
+    def _read_header(partition):
+        block = bytearray(4096)
+        partition.readblocks(0, block)
+        return block
+
+    @classmethod
+    def image_version(cls, block):
+        """Version of a picoKVM application image, from its first block; raises ValueError for any other image."""
+        # esp_image_header_t (24 bytes), with the chip at offset 12, then the first segment's header (8 bytes),
+        # whose data starts with esp_app_desc_t: magic word, then the version at offset 16
+        if len(block) < 80 or block[0] != 0xE9 or struct.unpack_from("<I", block, 32)[0] != 0xABCD5432:
+            raise ValueError("Not an ESP32 application image")
+        if struct.unpack_from("<H", block, 12)[0] != 9:
+            raise ValueError("Not an ESP32-S3 image")
+        version = bytes(block[48:80]).split(b"\0", 1)[0].decode()
+        if not version.startswith(cls._VERSION_PREFIX):
+            raise ValueError("Not a picoKVM firmware image")
+        return version[len(cls._VERSION_PREFIX) :]
+
+    async def run(self, is_healthy):
+        """On a trial boot: confirms the update once is_healthy() holds, or restarts into the previous firmware."""
+        if not self._trial:
+            return
+        deadline = time.ticks_add(time.ticks_ms(), self._TRIAL_TIMEOUT * 1000)
+        while not is_healthy():
+            if time.ticks_diff(deadline, time.ticks_ms()) < 0:
+                print("Update not healthy, restarting into the previous firmware")
+                machine.reset()  # The state file stays: the previous firmware reports the rollback
+            self._watchdog.feed()
+            await asyncio.sleep(1)
+        Partition.mark_app_valid_cancel_rollback()
+        os.remove(self._STATE_FILE)
+        self.status = f"Updated from {self._trial.get('from')} to {self.version}"
+        print(self.status)
+        while True:  # The watchdog cannot be stopped
+            self._watchdog.feed()
+            await asyncio.sleep(5)

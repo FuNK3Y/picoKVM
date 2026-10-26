@@ -3,6 +3,10 @@ import sys
 sys.path.remove(".frozen")  # Run the firmware's modules even if stale copies are left on the filesystem
 sys.path.insert(0, ".frozen")
 
+from updater import Updater
+
+updater = Updater()  # First: on the trial boot of an update, its watchdog covers everything below
+
 import network
 import asyncio
 import gc
@@ -18,16 +22,21 @@ Config.load()
 controller = Controller()
 
 
-async def connect():
+def connect():
     wlan = network.WLAN(network.STA_IF)
     network.hostname(Config.wireless_network["hostname"])
     wlan.active(True)
     wlan.config(pm=network.WLAN.PM_NONE)
     wlan.connect(Config.wireless_network["SSID"], Config.wireless_network["password"])
+    return wlan
 
 
-asyncio.create_task(connect())
-asyncio.create_task(asyncio.start_server(WebServer(controller, MetricsProvider()).handle_client, "0.0.0.0", 80))
-asyncio.create_task(ButtonHandler(Config.button_gpio_pin, controller.set_active_input).poll())
+async def main():
+    wlan = connect()
+    await asyncio.start_server(WebServer(controller, MetricsProvider(updater), updater).handle_client, "0.0.0.0", 80)
+    asyncio.create_task(ButtonHandler(Config.button_gpio_pin, controller.set_active_input).poll())
+    await updater.run(wlan.isconnected)  # Healthy: config loaded, web server up, and on the network
 
+
+asyncio.create_task(main())
 asyncio.get_event_loop().run_forever()

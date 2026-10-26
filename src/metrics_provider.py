@@ -6,8 +6,14 @@ from config import Config
 
 
 class MetricsProvider:
+    def __init__(self, updater):
+        self.updater = updater
+
     def metrics(self):
         output = f"""
+# HELP picokvm_info Firmware version
+# TYPE picokvm_info gauge
+picokvm_info{{version="{self.updater.version}"}} 1
 # HELP wlan_rssi_dbm Received Signal Strength Indicator in dBm
 # TYPE wlan_rssi_dbm gauge
 wlan_rssi_dbm {network.WLAN(network.STA_IF).status("rssi")}
