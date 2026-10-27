@@ -11,6 +11,8 @@ on:
 
 permissions:
   contents: write  # Publishing the release of a tag
+  pages: write  # Publishing the installer of a tag
+  id-token: write  # Required by actions/deploy-pages
 
 jobs:
   build:
@@ -43,3 +45,35 @@ jobs:
           files: |
             firmware/build/firmware.bin
             firmware/build/firmware-ota.bin
+
+      - name: Installer
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |  # install/index.html, with the release's image and its ESP Web Tools manifest
+          mkdir -p firmware/build/pages
+          cp install/index.html firmware/build/firmware.bin firmware/build/pages/
+          cat > firmware/build/pages/manifest.json <<EOF
+          {
+            "name": "picoKVM",
+            "version": "${GITHUB_REF_NAME}",
+            "new_install_prompt_erase": true,
+            "new_install_improv_wait_time": 15,
+            "builds": [{"chipFamily": "ESP32-S3", "parts": [{"path": "firmware.bin", "offset": 0}]}]
+          }
+          EOF
+
+      - uses: actions/upload-pages-artifact@v5
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          path: firmware/build/pages
+
+  installer:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5

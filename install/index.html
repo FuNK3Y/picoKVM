@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>picoKVM installer</title>
+    <!-- Published to GitHub Pages with each release (.github/workflows/firmware.yml), next to its firmware.bin and manifest.json -->
+    <script type="module" src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
+    <style>
+        :root { --text: #1d1d1f; --muted: #5f6368; --background: #fafafa; --accent: #3DBDE7; }
+        @media (prefers-color-scheme: dark) {
+            :root { --text: #e8eaed; --muted: #9aa0a6; --background: #1b1c1e; }
+        }
+        body { margin: 0; padding: 2rem 1rem; font-family: system-ui, sans-serif; line-height: 1.5; color: var(--text); background: var(--background); }
+        main { max-width: 40rem; margin: 0 auto; }
+        h1 { margin-top: 0; }
+        ol li { margin-bottom: 0.5rem; }
+        .muted { color: var(--muted); }
+        a { color: var(--accent); }
+        esp-web-install-button { display: block; margin: 1.5rem 0; --esp-tools-button-color: var(--accent); }
+    </style>
+</head>
+<body>
+<main>
+    <h1>picoKVM installer</h1>
+    <p>Installs the latest <a href="https://github.com/FuNK3Y/picoKVM">picoKVM</a> firmware from the browser, then connects it to Wi-Fi.</p>
+    <ol>
+        <li>Plug the board's AUX / FLASH USB-C port into this computer.</li>
+        <li>Hold BOOT, press RESET, release BOOT.</li>
+        <li>Click <em>Connect</em>, pick the board's port, and install. Accept to erase the device: the firmware's flash layout needs it, and it also deletes the settings.</li>
+        <li>Press RESET once the install is done. If the Wi-Fi step does not show up, click <em>Connect</em> again and pick the board's port: the running firmware has its own.</li>
+        <li>Choose the Wi-Fi network, then <em>Visit device</em> opens its settings page: set the admin password and the monitors there.</li>
+    </ol>
+    <esp-web-install-button manifest="manifest.json">
+        <span slot="unsupported">This browser cannot talk to USB devices: use Chrome or Edge on a computer.</span>
+        <span slot="not-allowed">The page must be opened over HTTPS.</span>
+    </esp-web-install-button>
+    <p class="muted">Already installed? <em>Connect</em> also changes the Wi-Fi network of a running picoKVM.</p>
+</main>
+</body>
+</html>

@@ -7,10 +7,10 @@ from samsung_monitor import SamsungMonitor
 
 
 class Config:
-    wireless_network = {}
+    wireless_network = {"SSID": "", "password": "", "hostname": "picokvm"}  # No SSID: not on Wi-Fi until set over Improv (src/improv.py)
     inputs = {"A": {"color": "#FF8C00", "name": "PC1"}, "B": {"color": "#3DBDE7", "name": "PC2"}}  # Orange, blue
     led_idle_brightness = 0  # 0 turns the LEDs off after a switch; 0 < x <= 1 keeps the active input's color, dimmed
-    admin_password = None  # Required, as HTTP Basic credentials (any user name), by the API calls that change the device
+    admin_password = None  # When set, required as HTTP Basic credentials (any user name) by the settings and the API calls that change the device
     update_repository = "FuNK3Y/picoKVM"  # GitHub repository whose latest release POST /api/update/latest installs
     devices = []
     _settings = ("wireless_network", "inputs", "led_idle_brightness", "admin_password", "update_repository")  # Others in config.json are ignored
@@ -41,12 +41,15 @@ class Config:
 
     @staticmethod
     def load():
-        with open(Config._configFile, "r") as file:
-            content = json.loads(file.read())
+        try:
+            with open(Config._configFile, "r") as file:
+                content = json.loads(file.read())
+        except OSError:  # A new device: the defaults, until its first save
+            return
         for key in Config._settings:
             if key in content:
                 setattr(Config, key, content[key])
-        Config.devices = [Config._device_types[device["type"]].from_dict(device["data"]) for device in content["devices"]]
+        Config.devices = [Config._device_types[device["type"]].from_dict(device["data"]) for device in content.get("devices", [])]
         Config._lastSaved = Config._serialize()
 
     @staticmethod
