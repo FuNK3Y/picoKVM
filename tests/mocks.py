@@ -151,12 +151,24 @@ class WLAN:
 
     connecting = False  # As the ESP32's Wi-Fi driver, whose state outlives a soft reboot
     connects = 0
+    networks = {}  # SSID -> password: those connect() joins at once
+    joined = None  # SSID of the last connect()
+    scanned = []  # scan()'s tuples
 
     def connect(self, ssid, password):
         if WLAN.connecting or WLAN.connected:
             raise OSError("Wifi Internal State Error")
         WLAN.connecting = True
         WLAN.connects += 1
+        WLAN.joined = ssid
+        if WLAN.networks.get(ssid) == password:
+            WLAN.connecting, WLAN.connected = False, True
+
+    def ifconfig(self):
+        return ("192.168.1.42", "255.255.255.0", "192.168.1.1", "192.168.1.1")
+
+    def scan(self):
+        return WLAN.scanned
 
     def disconnect(self):
         WLAN.connecting = WLAN.connected = False
@@ -254,8 +266,8 @@ module("machine", Pin=Pin, WDT=WDT, SoftI2C=SoftI2C, reset=reset)
 module("esp32", Partition=Partition, idf_heap_info=lambda kind: [(1000, 500, 400, 300)], HEAP_DATA=0, mcu_temperature=lambda: 40)
 module("network", WLAN=WLAN, STA_IF=WLAN.STA_IF, hostname=lambda *args: "picokvm")
 module("neopixel", NeoPixel=NeoPixel)
+module("micropython", kbd_intr=lambda char: None)
 module("aiohttp", ClientSession=ClientSession)
-gc.threshold = lambda bytes: None
 gc.mem_free = lambda: 100000
 gc.mem_alloc = lambda: 50000
 time.ticks_ms = lambda: int(time.monotonic() * 1000)
@@ -305,6 +317,9 @@ class TestCase(unittest.IsolatedAsyncioTestCase):
         WLAN.connected = True
         WLAN.connecting = False
         WLAN.connects = 0
+        WLAN.networks = {}
+        WLAN.joined = None
+        WLAN.scanned = []
         SoftI2C.writes.clear()
         for recorded in (ClientSession.served, ClientSession.requests, ClientSession.connections, ClientSession.received, ClientSession.sent):
             recorded.clear()

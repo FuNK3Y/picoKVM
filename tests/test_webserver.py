@@ -189,11 +189,14 @@ class WebServerTest(TestCase):
         self.assertIn(b'picokvm_info{version="v1.0.0"} 1', content)
         self.assertIn(b'usb_input_powered{input="A"}', content)
 
+    async def test_open_without_admin_password(self):
+        Config.admin_password = None
+        status, _, content = await self.request("GET /api/config HTTP/1.1\r\n")
+        self.assertEqual(status, "HTTP/1.1 200 OK")
+        self.assertEqual(content["update_repository"], "owner/repo")
+
     async def test_update_needs_the_password(self):
         data = image("v2.0.0")
-        Config.admin_password = None
-        self.assertEqual((await self.upload(data))[0], "HTTP/1.1 403 Forbidden")
-        Config.admin_password = "secret"
         for auth in ("wrong", None):
             status, headers, _ = await self.upload(data, auth)
             self.assertEqual(status, "HTTP/1.1 401 Unauthorized")

@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 from mocks import ROOT, WDT, WLAN, Partition, Pin, TestCase, image, reader
 import board
+from config import Config
 from updater import Updater
 
 
@@ -43,6 +44,14 @@ class MainTest(TestCase):
         self.assertEqual(start_server.call_args.args[1:], ("0.0.0.0", 80))
         self.assertEqual(Pin.levels[board.USB_ENABLE], 0)  # Controller up
         self.assertEqual(WDT.instances, [])  # Not a trial
+
+    async def test_starts_new(self):
+        os.remove("config.json")  # Erased: waits for Improv to set the Wi-Fi
+        WLAN.connected = False
+        with patch.object(Config, "wireless_network", {"SSID": "", "password": "", "hostname": "picokvm"}), patch.object(Config, "devices", []):
+            start_server = await self.start()
+        self.assertEqual(start_server.call_args.args[1:], ("0.0.0.0", 80))
+        self.assertEqual(WLAN.connects, 0)
 
     async def test_soft_reboot(self):
         WLAN.connected = False

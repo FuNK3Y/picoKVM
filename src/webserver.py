@@ -43,7 +43,7 @@ class WebServer:
             ("POST", "/api/update/latest"): self.install_latest_release,
         }
         self._event_streams = 0
-        self._protected = {("GET", "/config"), ("GET", "/api/config"), ("POST", "/api/config"), ("POST", "/api/update"), ("POST", "/api/update/latest")}  # Require admin_password
+        self._protected = {("GET", "/config"), ("GET", "/api/config"), ("POST", "/api/config"), ("POST", "/api/update"), ("POST", "/api/update/latest")}  # Require admin_password, when set
 
     async def handle_client(self, reader, writer):
         try:
@@ -99,10 +99,9 @@ class WebServer:
         self.json_response(writer, status_code, {"message": message}, headers)
 
     def authorized(self, writer, headers):
-        """Checks the request's HTTP Basic credentials against admin_password; otherwise answers the request."""
-        if not Config.admin_password:
-            self.error(writer, "403 Forbidden", "Set admin_password in config.json to enable this")
-            return False
+        """Checks the request's HTTP Basic credentials against admin_password, if set; otherwise answers the request."""
+        if not Config.admin_password:  # Open to the network, until one is set
+            return True
         scheme, _, credentials = headers.get("authorization", "").partition(" ")
         try:
             password = binascii.a2b_base64(credentials).decode().partition(":")[2]

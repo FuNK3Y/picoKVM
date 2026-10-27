@@ -34,19 +34,23 @@ The firmware is MicroPython with this repository's code (`src/`) built in. Each 
 - `firmware.bin`: the full image, flashed over USB;
 - `firmware-ota.bin`: the application alone, for [updates](#updates) over the network.
 
-Flash `firmware.bin` over the board's AUX / FLASH USB-C port (hold BOOT, press RESET, release BOOT):
+The simplest is the **[browser installer](https://funk3y.github.io/picoKVM/)** (Chrome or Edge): it flashes the latest release over the board's AUX / FLASH USB-C port, then sets its Wi-Fi network. It is [ESP Web Tools](https://esphome.github.io/esp-web-tools/), and the firmware takes the Wi-Fi credentials over [Improv Serial](https://www.improv-wifi.com/serial/), keeping them in `config.json`. *Visit device* then opens the [settings page](#settings-page), for everything else. The installer also changes the Wi-Fi network of a running board.
+
+Or flash `firmware.bin` yourself over the AUX / FLASH USB-C port:
 ```sh
 esptool.py erase_flash
 esptool.py write_flash 0 firmware.bin
 ```
 Erase first: the flash layout (two application slots, for updates) is not the plain MicroPython one, and a leftover filesystem would not mount. This also wipes `config.json`: coming from an install that copied the files to the board, back it up first with `mpremote cp :config.json config.json`. The USB port is the MicroPython REPL afterwards.
 
-Copy `config.example.json` to `config.json` and adjust it with your settings. You need to configure at least your Wi-Fi credentials and your monitors. Upload it to the board and restart it, e.g. with [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) (or [Thonny](https://thonny.org/)'s file view):
+The firmware runs the REPL on the chip's USB Serial/JTAG port, the one its bootloader uses too: the installer and esptool restart it into the bootloader by themselves. A board without firmware, or with firmware up to v1.1.1, needs it by hand: hold BOOT, press RESET, release BOOT.
+
+Then connect it to Wi-Fi from the [browser installer](https://funk3y.github.io/picoKVM/) (*Connect*), or copy `config.example.json` to `config.json` and adjust it with your settings: at least your Wi-Fi credentials and your monitors. Upload it to the board and restart it, e.g. with [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) (or [Thonny](https://thonny.org/)'s file view):
 ```sh
 mpremote cp config.json :config.json + reset
 ```
 
-Set an `admin_password` there too: it opens the [settings page](#settings-page), from which everything else can then be changed.
+Set an `admin_password`, there or from the [settings page](#settings-page): until one is set, the settings page and the API calls that change the device are open to anyone on the network.
 
 `config.json` is deliberately not tracked by git: the device rewrites it at runtime to persist the monitor pairing token, so it ends up holding both that token and your Wi-Fi password.
 
@@ -57,7 +61,7 @@ The board's pins are fixed in the firmware ([`src/board.py`](src/board.py)). Bes
 | key | what |
 |---|---|
 | `led_idle_brightness` | `0`: LEDs off after a switch; `0` to `1`: keep showing the active input's color at that brightness |
-| `admin_password` | required, as HTTP Basic credentials with any user name, by the settings page and the API calls that change the device; while empty, they are refused |
+| `admin_password` | when set, required as HTTP Basic credentials with any user name by the settings page and the API calls that change the device; while empty, they are open to anyone on the network |
 | `update_repository` | GitHub repository whose latest release the device updates to (default `FuNK3Y/picoKVM`) |
 
 A `config.json` from an earlier version still loads: its pin settings are ignored. Only its `DdcMonitor` devices need `"hdmi": 1` (or `2`) in place of `sda_gpio_pin` / `scl_gpio_pin`.
@@ -218,7 +222,7 @@ On top of the physical button, there are two ways to operate the KVM. You need t
 Simply connect to `http://$hostname.local` and press the button. The page follows the KVM as it switches, whoever switches it (the button, another page, the API), and follows the browser's light or dark mode.
 
 ### Settings page
-*Settings*, below the button (`http://$hostname.local/config`), edits the configuration after the browser asks for the admin password (any user name): Wi-Fi, input names and colors, LED brightness, the admin password, and the monitors (a form for DDC/CI monitors, JSON for the others, checked when saving). Changes apply at once, except Wi-Fi ones, which restart the device. The firmware [updates](#updates) are there too.
+*Settings*, below the button (`http://$hostname.local/config`), edits the configuration, after the browser asks for the admin password (any user name) if one is set: Wi-Fi, input names and colors, LED brightness, the admin password, and the monitors (a form for DDC/CI monitors, JSON for the others, checked when saving). Changes apply at once, except Wi-Fi ones, which restart the device. The firmware [updates](#updates) are there too.
 
 ### API
 Issue a `POST` request to `http://$hostname.local/api/active_input/A` or `B`.
@@ -227,7 +231,7 @@ Issue a `POST` request to `http://$hostname.local/api/active_input/A` or `B`.
 
 `GET /api/active_input` gives the state: the active input, the one being switched to (`switching`, or `null`) and why the last switch failed (`error`, or `null`). `GET /api/events` streams that state as [server-sent events](https://developer.mozilla.org/docs/Web/API/Server-sent_events), on every change.
 
-`GET /api/config` and `POST /api/config` read and write the configuration (password-protected, without the passwords; send `password` / `admin_password` only to change them).
+`GET /api/config` and `POST /api/config` read and write the configuration (password-protected once `admin_password` is set, without the passwords; send `password` / `admin_password` only to change them).
 
 #### PowerShell example:
 ```powershell
@@ -239,7 +243,7 @@ Pressing the button for more than 10 seconds will reset the device
 `/metrics` provide memory related information and wifi signal strength (plus which computers power their USB port, and the peripheral fault flag). It can be ingested by prometheus
 
 ## Updates
-The firmware updates itself over the network, MicroPython included. Set `admin_password` in `config.json` first: updates are refused without it.
+The firmware updates itself over the network, MicroPython included. With an `admin_password` set, only those who know it can install updates (the `-u` below); without one, anyone on the network can.
 
 The simplest is from the [settings page](#settings-page): *Check for updates* looks up the latest [release](https://github.com/FuNK3Y/picoKVM/releases) and *Install …* installs it; *Upload* installs a `firmware-ota.bin` you have. The same through the API:
 ```sh
@@ -268,7 +272,7 @@ The API is plain HTTP: anyone able to watch your network traffic can read the pa
 . $IDF_PATH/export.sh
 firmware/build.sh
 ```
-GitHub Actions runs the same build on every push and keeps the images as an artifact of the run, so a change can be tried on the board without a local ESP-IDF. Pushing a `v*` tag publishes them as a release. The version is `git describe` of the commit.
+GitHub Actions runs the same build on every pull request and push to `main`, or on any branch from the Actions tab (*Run workflow*), and keeps the images as an artifact of the run, so a change can be tried on the board without a local ESP-IDF. Pushing a `v*` tag publishes them as a release, and the [browser installer](https://funk3y.github.io/picoKVM/) ([`install/index.html`](install/index.html), with that release's `firmware.bin`) to GitHub Pages (Settings → Pages → Source: GitHub Actions). The version is `git describe` of the commit.
 
 The tests run the application on CPython, with stand-ins for the board ([`tests/mocks.py`](tests/mocks.py)):
 ```sh
