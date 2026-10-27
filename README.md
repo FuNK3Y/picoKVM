@@ -36,12 +36,14 @@ The firmware is MicroPython with this repository's code (`src/`) built in. Each 
 
 The simplest is the **[browser installer](https://funk3y.github.io/picoKVM/)** (Chrome or Edge): it flashes the latest release over the board's AUX / FLASH USB-C port, then sets its Wi-Fi network. It is [ESP Web Tools](https://esphome.github.io/esp-web-tools/), and the firmware takes the Wi-Fi credentials over [Improv Serial](https://www.improv-wifi.com/serial/), keeping them in `config.json`. *Visit device* then opens the [settings page](#settings-page), for everything else. The installer also changes the Wi-Fi network of a running board.
 
-Or flash `firmware.bin` yourself over the AUX / FLASH USB-C port (hold BOOT, press RESET, release BOOT):
+Or flash `firmware.bin` yourself over the AUX / FLASH USB-C port:
 ```sh
 esptool.py erase_flash
 esptool.py write_flash 0 firmware.bin
 ```
 Erase first: the flash layout (two application slots, for updates) is not the plain MicroPython one, and a leftover filesystem would not mount. This also wipes `config.json`: coming from an install that copied the files to the board, back it up first with `mpremote cp :config.json config.json`. The USB port is the MicroPython REPL afterwards.
+
+The firmware runs the REPL on the chip's USB Serial/JTAG port, the one its bootloader uses too: the installer and esptool restart it into the bootloader by themselves. A board without firmware, or with firmware up to v1.1.1, needs it by hand: hold BOOT, press RESET, release BOOT.
 
 Then connect it to Wi-Fi from the [browser installer](https://funk3y.github.io/picoKVM/) (*Connect*), or copy `config.example.json` to `config.json` and adjust it with your settings: at least your Wi-Fi credentials and your monitors. Upload it to the board and restart it, e.g. with [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) (or [Thonny](https://thonny.org/)'s file view):
 ```sh

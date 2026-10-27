@@ -26,16 +26,15 @@
     <p>Installs the latest <a href="https://github.com/FuNK3Y/picoKVM">picoKVM</a> firmware from the browser, then connects it to Wi-Fi.</p>
     <ol>
         <li>Plug the board's AUX / FLASH USB-C port into this computer.</li>
-        <li>Hold BOOT, press RESET, release BOOT.</li>
-        <li>Click <em>Connect</em>, pick the board's port, and install. Accept to erase the device: the firmware's flash layout needs it, and it also deletes the settings.</li>
-        <li>Press RESET once the install is done. If the Wi-Fi step does not show up, click <em>Connect</em> again and pick the board's port: the running firmware has its own.</li>
-        <li>Choose the Wi-Fi network, then <em>Visit device</em> opens its settings page: set the admin password and the monitors there.</li>
+        <li>Click <em>Connect</em>, pick the board's port (<em>USB JTAG/serial debug unit</em>), and install. Accept to erase the device: the firmware's flash layout needs it, and it also deletes the settings.</li>
+        <li>Once installed, the board restarts and the installer offers to connect it to Wi-Fi. <em>Visit device</em> then opens its settings page: set the admin password and the monitors there.</li>
     </ol>
     <esp-web-install-button manifest="manifest.json">
         <span slot="unsupported">This browser cannot talk to USB devices: use Chrome or Edge on a computer.</span>
         <span slot="not-allowed">The page must be opened over HTTPS.</span>
     </esp-web-install-button>
     <p class="muted">Already installed? <em>Connect</em> also changes the Wi-Fi network of a running picoKVM.</p>
+    <p class="muted">Installing fails to connect? Firmware older than this installer, or none, cannot be reached that way: hold BOOT, press RESET, release BOOT, then <em>Connect</em> again.</p>
 </main>
 </body>
 </html>
