@@ -1,7 +1,7 @@
 import asyncio
 import unittest
 
-from mocks import Pin, Reset, TestCase
+from mocks import Pin, TestCase
 import board
 from button_handler import ButtonHandler
 
@@ -39,15 +39,15 @@ class ButtonHandlerTest(TestCase):
         task = await self.poll(handler, [(1, 0.03), (0, 0.03), (1, 0.05)])
         self.assertTrue(task.cancelled())  # Still polling
 
-    async def test_long_press_resets(self):
-        async def callback():
-            pass
+    async def test_a_glitch_while_held_is_not_a_press(self):
+        calls = []
 
-        handler = ButtonHandler(board.BUTTON, callback, debounce=0.01)
-        handler.reset_counter = 3
-        Pin.levels[board.BUTTON] = 0
-        with self.assertRaises(Reset):
-            await asyncio.wait_for(handler.poll(), 1)
+        async def callback():
+            calls.append(1)
+
+        handler = ButtonHandler(board.BUTTON, callback, debounce=0.02)
+        await self.poll(handler, [(0, 0.05), (1, 0.005), (0, 0.05)])  # Shorter than the debounce
+        self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":

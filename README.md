@@ -2,7 +2,7 @@
 An inexpensive network KVM that can switch USB and monitor inputs simultaneously
 
 ## Why
-Samsung makes great monitors, but they often lack a KVM. This project's ambition is to take advantage of the smart features of those monitors to build one with unique features.
+Samsung makes great monitors, but they often lack a KVM. The project started as a way to switch them along with the USB devices, over their network API. It was later generalized to most monitors, driven over HDMI DDC/CI by its own board, while still driving network-controlled monitors and devices.
 
 ## Features
 The networking enables some unique features:
@@ -239,7 +239,6 @@ Invoke-RestMethod -Method POST "http://$hostname.local/api/active_input/A"
 ```
 
 ### Troubleshooting
-Pressing the button for more than 10 seconds will reset the device
 `/metrics` provide memory related information and wifi signal strength (plus which computers power their USB port, and the peripheral fault flag). It can be ingested by prometheus
 
 ## Updates
