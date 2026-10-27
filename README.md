@@ -62,7 +62,7 @@ Monitors are added on the settings page: a form for DDC/CI monitors, JSON for th
 #### DDC/CI monitors
 Enable DDC/CI in the monitor's menu. For each computer, set the value of the monitor input it is on (VCP `0x60`): commonly `15` (DisplayPort 1), `16` (DisplayPort 2), `17` (HDMI 1), `18` (HDMI 2). Some monitors use their own values: read them with `ddcutil getvcp 60` (Linux) or *ControlMyMonitor* (Windows) while each input is active. *Power the monitor on first* wakes up monitors that keep DDC/CI alive in standby.
 
-The monitor must accept DDC/CI on an input that is not the active one, since it is showing the other computer when the command arrives. Most do: tested on **AOC, Samsung, Dell, Acer and Lenovo** monitors. Some have no DDC/CI at all (the Samsung G80SD): drive those over the network.
+The monitor must accept DDC/CI on an input that is not the active one, since it is showing the other computer when the command arrives. Most do: tested on **AOC, Samsung, Dell, Acer, Philips and Lenovo** monitors. Some have no DDC/CI at all (the Samsung G80SD): drive those over the network.
 
 #### Samsung monitors over the network
 For Samsung smart monitors without DDC/CI, the KVM sends remote-control key presses: enable IP remote on the monitor *(Connection > Network > Expert Settings)*. Find a repeatable sequence of keys that selects each input from the home screen, and write it with the [key codes](https://github.com/ollo69/ha-samsungtv-smart/blob/master/docs/Key_codes.md) as a `SamsungMonitor`. `KEY_RETURN` first also wakes the monitor up; `command_delay` (or a `delay` on one key) slows the sequence down if the menu cannot keep up.
