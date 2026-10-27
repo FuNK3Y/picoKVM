@@ -20,28 +20,14 @@ The original build (M5Stack AtomS3 Lite + USB multiplexer) is no longer supporte
 ## Install
 1. Open the **[browser installer](https://funk3y.github.io/picoKVM/)** in Chrome or Edge, and plug the board's AUX / FLASH USB-C port into the computer.
 2. Install, then connect the board to your Wi-Fi from the same page.
-3. *Visit device* opens the [settings page](#settings-page): set an admin password, the input names and the monitors.
+3. *Visit device* opens the [settings page](#settings): set an admin password, the input names and the monitors.
 
 Until an admin password is set, the settings page and the API calls that change the device are open to anyone on the network.
 
-## Monitors
-Monitors are set on the [settings page](#settings-page): a form for DDC/CI monitors, JSON for the others ([`config.example.json`](config.example.json) has one of each).
-
-### DDC/CI
-Connect an HDMI cable from one of the board's HDMI ports to the monitor, and enable DDC/CI in the monitor's menu. For each computer, set the monitor's input value (VCP `0x60`): commonly `15` (DisplayPort 1), `16` (DisplayPort 2), `17` (HDMI 1), `18` (HDMI 2). Some monitors use their own values: read them with `ddcutil getvcp 60` (Linux) or *ControlMyMonitor* (Windows) while each input is active. *Power the monitor on first* wakes up monitors that keep DDC/CI alive in standby.
-
-The monitor must accept DDC/CI on an input that is not the active one: it is showing another computer when the command arrives. Most do; tested so far on **AOC, Samsung, Dell, Acer and Lenovo** monitors. Some monitors have no DDC/CI at all (the Samsung G80SD): use the network instead.
-
-### Samsung remote API
-For Samsung smart monitors without DDC/CI (the G80SD), the KVM sends remote key presses over the network: enable IP remote on the monitor *(Connection > Network > Expert Settings)*. Find a repeatable sequence of keys that selects each input from the home screen, and write it with the [key codes](https://github.com/ollo69/ha-samsungtv-smart/blob/master/docs/Key_codes.md) as a `SamsungMonitor` device: see [`config.example.json`](config.example.json). `KEY_RETURN` first also wakes the monitor up; `command_delay` (and a `delay` on any key) slows the sequence down if the monitor's menu cannot keep up.
-
-### Other network devices
-A `GenericDevice` sends an HTTP request per input, e.g. to the [SmartThings API](https://github.com/ollo69/ha-samsungtv-smart/issues/274#issuecomment-2597627685) (untested): see [`config.example.json`](config.example.json).
-
-## How to use
-- Connect the computers' video directly to the monitors
-- Connect each computer's USB to the KVM, and the keyboard and mouse to its peripheral port (through a hub, which can be the monitor's own)
-- Connect the board's HDMI ports to the monitors driven over DDC/CI (control only, no video)
+## Wiring
+- Computers' video goes directly to the monitors, as without a KVM.
+- Each computer's USB goes to the board; the keyboard and mouse go to its peripheral port, through a hub (the monitor's own hub works).
+- For monitors driven over DDC/CI, an HDMI cable goes from one of the board's HDMI ports to the monitor. It carries only the input-switch commands, no video. Monitors driven over the network need none.
 
 ```mermaid
 graph LR
@@ -62,21 +48,32 @@ graph LR
     style PC2 fill:#ddd,stroke:#333
 ```
 
-Then switch with the button, the web page or the API. The device answers at `http://picokvm.local` (its hostname is in the settings).
+## Settings
+The settings page (*Settings*, below the switch button at `http://picokvm.local`) edits everything: Wi-Fi, input names and colors, LED brightness, admin password, monitors and [updates](#updates). Once an admin password is set, it asks for it (any user name).
 
-### Web page
-`http://picokvm.local` switches with one button, and follows the KVM whoever switches it.
+Monitors are added there: a form for DDC/CI monitors, JSON for the others ([`config.example.json`](config.example.json) has an example of each).
 
-### Settings page
-*Settings*, below the button, edits everything: Wi-Fi, input names and colors, LED brightness, admin password, monitors, and [updates](#updates). It asks for the admin password once one is set (any user name).
+### DDC/CI monitors
+Enable DDC/CI in the monitor's menu. For each computer, set the value of the monitor input it is on (VCP `0x60`): commonly `15` (DisplayPort 1), `16` (DisplayPort 2), `17` (HDMI 1), `18` (HDMI 2). Some monitors use their own values: read them with `ddcutil getvcp 60` (Linux) or *ControlMyMonitor* (Windows) while each input is active. *Power the monitor on first* wakes up monitors that keep DDC/CI alive in standby.
 
-### API
+The monitor must accept DDC/CI on an input that is not the active one, since it is showing the other computer when the command arrives. Most do: tested on **AOC, Samsung, Dell, Acer and Lenovo** monitors. Some have no DDC/CI at all (the Samsung G80SD): drive those over the network.
+
+### Samsung monitors over the network
+For Samsung smart monitors without DDC/CI, the KVM sends remote-control key presses: enable IP remote on the monitor *(Connection > Network > Expert Settings)*. Find a repeatable sequence of keys that selects each input from the home screen, and write it with the [key codes](https://github.com/ollo69/ha-samsungtv-smart/blob/master/docs/Key_codes.md) as a `SamsungMonitor`. `KEY_RETURN` first also wakes the monitor up; `command_delay` (or a `delay` on one key) slows the sequence down if the menu cannot keep up.
+
+### Other network devices
+A `GenericDevice` sends an HTTP request for each input: another monitor's API (e.g. [SmartThings](https://github.com/ollo69/ha-samsungtv-smart/issues/274#issuecomment-2597627685), untested), a lamp, ...
+
+## Use
+Switch with the button, the web page at `http://picokvm.local` (it follows the KVM whoever switches it), or the API:
 ```sh
 curl -X POST http://picokvm.local/api/active_input/A   # or B; without the input, toggles
 curl http://picokvm.local/api/active_input             # the state: active input, switching, last error
 curl http://picokvm.local/api/events                   # the state as server-sent events, on every change
 ```
 `/api/config` reads (`GET`) and writes (`POST`) the configuration, without the passwords. `/metrics` gives Wi-Fi signal, memory, USB power and version for Prometheus.
+
+`picokvm` is the default hostname; it can be changed in the settings.
 
 ## Updates
 *Check for updates*, then *Install*, on the settings page installs the latest [release](https://github.com/FuNK3Y/picoKVM/releases) over the network; *Upload* installs a `firmware-ota.bin` of your own. Settings are kept. The first boot of an update is a trial: if the device is not back on Wi-Fi within 2 minutes, it returns to the previous firmware.
