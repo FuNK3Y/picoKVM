@@ -2,7 +2,7 @@ name: Tests
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
     paths-ignore: ["hardware/**", "esphome/**"]
   pull_request:
     paths-ignore: ["hardware/**", "esphome/**"]

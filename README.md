@@ -270,7 +270,7 @@ The API is plain HTTP: anyone able to watch your network traffic can read the pa
 . $IDF_PATH/export.sh
 firmware/build.sh
 ```
-GitHub Actions runs the same build on every push and keeps the images as an artifact of the run, so a change can be tried on the board without a local ESP-IDF. Pushing a `v*` tag publishes them as a release, and the [browser installer](https://funk3y.github.io/picoKVM/) ([`install/index.html`](install/index.html), with that release's `firmware.bin`) to GitHub Pages (Settings → Pages → Source: GitHub Actions). The version is `git describe` of the commit.
+GitHub Actions runs the same build on every pull request and push to `main`, or on any branch from the Actions tab (*Run workflow*), and keeps the images as an artifact of the run, so a change can be tried on the board without a local ESP-IDF. Pushing a `v*` tag publishes them as a release, and the [browser installer](https://funk3y.github.io/picoKVM/) ([`install/index.html`](install/index.html), with that release's `firmware.bin`) to GitHub Pages (Settings → Pages → Source: GitHub Actions). The version is `git describe` of the commit.
 
 The tests run the application on CPython, with stand-ins for the board ([`tests/mocks.py`](tests/mocks.py)):
 ```sh

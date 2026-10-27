@@ -268,7 +268,6 @@ module("network", WLAN=WLAN, STA_IF=WLAN.STA_IF, hostname=lambda *args: "picokvm
 module("neopixel", NeoPixel=NeoPixel)
 module("micropython", kbd_intr=lambda char: None)
 module("aiohttp", ClientSession=ClientSession)
-gc.threshold = lambda bytes: None
 gc.mem_free = lambda: 100000
 gc.mem_alloc = lambda: 50000
 time.ticks_ms = lambda: int(time.monotonic() * 1000)

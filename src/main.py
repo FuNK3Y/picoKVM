@@ -9,7 +9,6 @@ updater = Updater()  # First: on the trial boot of an update, its watchdog cover
 
 import network
 import asyncio
-import gc
 from config import Config
 from webserver import WebServer
 from controller import Controller
@@ -17,8 +16,6 @@ from button_handler import ButtonHandler
 from metrics_provider import MetricsProvider
 from improv import Improv
 import board
-
-gc.threshold((gc.mem_free() + gc.mem_alloc()) // 3)
 
 Config.load()
 controller = Controller()
