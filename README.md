@@ -20,9 +20,7 @@ The original build (M5Stack AtomS3 Lite + USB multiplexer) is no longer supporte
 ## Install
 1. Open the **[browser installer](https://funk3y.github.io/picoKVM/)** in Chrome or Edge, and plug the board's AUX / FLASH USB-C port into the computer.
 2. Install, then connect the board to your Wi-Fi from the same page.
-3. *Visit device* opens the [settings page](#settings): set an admin password, the input names and the monitors.
-
-Until an admin password is set, the settings page and the API calls that change the device are open to anyone on the network.
+3. *Visit device* opens the [settings page](#settings): set the [admin password](#admin-password) first, then the input names and the monitors.
 
 ## Wiring
 - Computers' video goes directly to the monitors, as without a KVM.
@@ -49,19 +47,27 @@ graph LR
 ```
 
 ## Settings
-The settings page (*Settings*, below the switch button at `http://picokvm.local`) edits everything: Wi-Fi, input names and colors, LED brightness, admin password, monitors and [updates](#updates). Once an admin password is set, it asks for it (any user name).
+The settings page (*Settings*, below the switch button at `http://picokvm.local`) edits everything: Wi-Fi, input names and colors, LED brightness, admin password, monitors and [updates](#updates).
 
-Monitors are added there: a form for DDC/CI monitors, JSON for the others ([`config.example.json`](config.example.json) has an example of each).
+### Admin password
+Once set, the admin password protects everything the settings page does: opening it, reading and changing the configuration, and installing updates, from the page or through the API. The browser asks for it (any user name); API calls send it as HTTP Basic credentials, e.g. `curl -u admin:<password>`. Switching inputs, the state and `/metrics` stay open.
 
-### DDC/CI monitors
+**Until it is set, all of that is open to anyone on the network.**
+
+It travels over plain HTTP, so anyone able to watch the network traffic can read it.
+
+### Monitors
+Monitors are added on the settings page: a form for DDC/CI monitors, JSON for the others ([`config.example.json`](config.example.json) has an example of each).
+
+#### DDC/CI monitors
 Enable DDC/CI in the monitor's menu. For each computer, set the value of the monitor input it is on (VCP `0x60`): commonly `15` (DisplayPort 1), `16` (DisplayPort 2), `17` (HDMI 1), `18` (HDMI 2). Some monitors use their own values: read them with `ddcutil getvcp 60` (Linux) or *ControlMyMonitor* (Windows) while each input is active. *Power the monitor on first* wakes up monitors that keep DDC/CI alive in standby.
 
 The monitor must accept DDC/CI on an input that is not the active one, since it is showing the other computer when the command arrives. Most do: tested on **AOC, Samsung, Dell, Acer and Lenovo** monitors. Some have no DDC/CI at all (the Samsung G80SD): drive those over the network.
 
-### Samsung monitors over the network
+#### Samsung monitors over the network
 For Samsung smart monitors without DDC/CI, the KVM sends remote-control key presses: enable IP remote on the monitor *(Connection > Network > Expert Settings)*. Find a repeatable sequence of keys that selects each input from the home screen, and write it with the [key codes](https://github.com/ollo69/ha-samsungtv-smart/blob/master/docs/Key_codes.md) as a `SamsungMonitor`. `KEY_RETURN` first also wakes the monitor up; `command_delay` (or a `delay` on one key) slows the sequence down if the menu cannot keep up.
 
-### Other network devices
+#### Other network devices
 A `GenericDevice` sends an HTTP request for each input: another monitor's API (e.g. [SmartThings](https://github.com/ollo69/ha-samsungtv-smart/issues/274#issuecomment-2597627685), untested), a lamp, ...
 
 ## Use
@@ -71,20 +77,20 @@ curl -X POST http://picokvm.local/api/active_input/A   # or B; without the input
 curl http://picokvm.local/api/active_input             # the state: active input, switching, last error
 curl http://picokvm.local/api/events                   # the state as server-sent events, on every change
 ```
-`/api/config` reads (`GET`) and writes (`POST`) the configuration, without the passwords. `/metrics` gives Wi-Fi signal, memory, USB power and version for Prometheus.
+`/api/config` reads (`GET`) and writes (`POST`) the configuration, without the passwords ([admin password](#admin-password) required). `/metrics` gives Wi-Fi signal, memory, USB power and version for Prometheus.
 
 `picokvm` is the default hostname; it can be changed in the settings.
 
 ## Updates
 *Check for updates*, then *Install*, on the settings page installs the latest [release](https://github.com/FuNK3Y/picoKVM/releases) over the network; *Upload* installs a `firmware-ota.bin` of your own. Settings are kept. The first boot of an update is a trial: if the device is not back on Wi-Fi within 2 minutes, it returns to the previous firmware.
 
-The same from the command line (`-u` only once an admin password is set):
+The same through the API, with the [admin password](#admin-password):
 ```sh
 curl -u admin:<admin_password> -X POST http://picokvm.local/api/update/latest
 curl -u admin:<admin_password> --data-binary @firmware-ota.bin http://picokvm.local/api/update
 ```
 
-The API is plain HTTP, so the password can be read by anyone watching the network; and MicroPython does not check GitHub's certificate when downloading a release.
+MicroPython does not check GitHub's certificate when downloading a release: the SHA-256 GitHub publishes only guards against a corrupted download.
 
 ## ESPHome
 The board can also run [ESPHome](https://esphome.io) instead of this firmware, for a native Home Assistant integration (DDC/CI monitors only). Include the [esphome/picokvm.yaml](esphome/picokvm.yaml) package, then name the computers and set the number of monitors:
