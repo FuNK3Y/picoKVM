@@ -239,28 +239,14 @@ class WebServerTest(TestCase):
         self.assertEqual(status, "HTTP/1.1 502 Bad Gateway")
         self.assertIn("500", content["message"])
 
-    async def test_latest_release_of_the_page_repository(self):
-        from test_release import serve
-
-        serve()
-        Config.update_repository = "other/repo"  # Saved; the page asks for the one in its field
-        _, _, content = await self.request("GET /api/update/latest?repository=owner/repo HTTP/1.1\r\n")
-        self.assertEqual(content["latest"], "v2.0.0")
-        status, _, content = await self.request("POST /api/update/latest?repository=owner/repo HTTP/1.1\r\n" + credentials("secret"))
-        self.assertEqual((status, content["version"]), ("HTTP/1.1 200 OK", "v2.0.0"))
-        for path in ("GET /api/update/latest?repository=repo", "POST /api/update/latest?repository=a/b/c"):
-            status, _, content = await self.request(path + " HTTP/1.1\r\n" + credentials("secret"))
-            self.assertEqual((status, content["message"]), ("HTTP/1.1 400 Bad Request", "Update repository: owner/name"))
-
     def ddc(self, hdmi, auth="secret"):
-        return self.request(f"GET /api/ddc?hdmi={hdmi} HTTP/1.1\r\n" + (credentials(auth) if auth else ""))
+        return self.request(f"GET /api/ddc/{hdmi} HTTP/1.1\r\n" + (credentials(auth) if auth else ""))
 
     async def test_ddc(self):
         from test_devices import DELL, capabilities_reply, edid
 
         sda = board.HDMI_DDC[2][0]
-        self.assertEqual((await self.ddc(2, auth=None))[0], "HTTP/1.1 401 Unauthorized")
-        status, _, content = await self.ddc(2)
+        status, _, content = await self.ddc(2, auth=None)  # Open, as the other reads
         self.assertEqual((status, content), ("HTTP/1.1 200 OK", {"name": None, "input": None, "inputs": None}))
         SoftI2C.replies[(sda, 0x50)] = edid()
         _, _, content = await self.ddc(2)
@@ -269,7 +255,7 @@ class WebServerTest(TestCase):
         _, _, content = await self.ddc(2)
         self.assertEqual(content, {"name": "DELL U2723QE", "input": 17, "inputs": [0x1B, 0x0F, 0x11, 0x12]})
         for hdmi in (3, "x", ""):
-            self.assertEqual((await self.ddc(hdmi))[0], "HTTP/1.1 400 Bad Request")
+            self.assertEqual((await self.ddc(hdmi))[0], "HTTP/1.1 404 Not Found")
 
 if __name__ == "__main__":
     unittest.main()

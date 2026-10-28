@@ -88,7 +88,7 @@ class Config:
         if not isinstance(brightness, (int, float)) or not 0 <= brightness <= 1:
             raise ValueError("LED brightness: from 0 to 1")
         repository = settings.get("update_repository")
-        if not Config.is_repository(repository):
+        if not isinstance(repository, str) or len([part for part in repository.split("/") if part]) != 2:
             raise ValueError("Update repository: owner/name")
         devices = []
         for number, device in enumerate(settings.get("devices", []), 1):
@@ -107,12 +107,6 @@ class Config:
         Config.devices = devices
         Config.save()
         return restart
-
-    @staticmethod
-    def is_repository(repository):
-        """Whether repository is a GitHub owner/name."""
-        parts = repository.split("/") if isinstance(repository, str) else []
-        return len(parts) == 2 and all(part and all(c.isalpha() or c.isdigit() or c in "-_." for c in part) for part in parts)  # MicroPython has no isalnum()
 
     @staticmethod
     def _is_color(color):

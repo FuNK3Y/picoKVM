@@ -294,7 +294,7 @@ content = r"""<!DOCTYPE html>
         function readMonitor(hdmi, refresh) {
             if (!refresh && readings[hdmi])
                 return readings[hdmi];
-            const read = fetch('/api/ddc?hdmi=' + hdmi).then(async response => {
+            const read = fetch('/api/ddc/' + hdmi).then(async response => {
                 const result = await response.json();
                 if (!response.ok)
                     throw new Error(result.message);
@@ -493,16 +493,11 @@ content = r"""<!DOCTYPE html>
             return data.version;
         }
 
-        // The repository in the field, saved or not
-        function latestUrl() {
-            return '/api/update/latest?repository=' + $('update_repository').value.trim();
-        }
-
         async function checkUpdate() {
             $('check').disabled = true;
             $('update-message').innerText = 'Checking...';
             try {
-                const response = await fetch(latestUrl());
+                const response = await fetch('/api/update/latest');
                 const data = await response.json();
                 if (!response.ok)
                     throw new Error(data.message);
@@ -535,7 +530,7 @@ content = r"""<!DOCTYPE html>
             $('install').disabled = true;
             $('update-message').innerText = 'Downloading and installing (about a minute)...';
             try {
-                const response = await fetch(latestUrl(), { method: 'POST' });
+                const response = await fetch('/api/update/latest', { method: 'POST' });
                 const data = await response.json();
                 if (!response.ok)
                     throw new Error(data.message);

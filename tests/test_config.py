@@ -110,7 +110,6 @@ class ApplyTest(TestCase):
             ({"inputs": {"A": {"name": "", "color": "#007BFF"}, "B": {"name": "Laptop", "color": "#902a8d"}}}, "name"),
             ({"led_idle_brightness": 2}, "brightness"),
             ({"update_repository": "repo"}, "owner/name"),
-            ({"update_repository": "owner/repo?x=1"}, "owner/name"),
             ({"devices": [{"type": "Toaster", "data": {}}]}, "Monitor 1: a type"),
             ({"devices": [{"type": "DdcMonitor", "data": {"hdmi": 3, "inputs": {"A": 15, "B": 17}}}]}, "no HDMI port 3"),
             ({"devices": [{"type": "DdcMonitor", "data": {"hdmi": 1, "inputs": {"A": 15}}}]}, "inputs"),

@@ -1,6 +1,7 @@
 import asyncio
 import binascii
 import json
+import board
 import sys
 import config_html
 import index_html
@@ -10,12 +11,11 @@ from ddc_monitor import DdcMonitor
 
 
 class Request:
-    def __init__(self, reader, writer, headers, argument=None, query={}):
+    def __init__(self, reader, writer, headers, argument=None):
         self.reader = reader
         self.writer = writer
         self.headers = headers
-        self.argument = argument  # The <input> of /api/active_input/<input>
-        self.query = query  # name -> value, not percent-decoded
+        self.argument = argument  # The <input> of /api/active_input/<input>, the <hdmi> of /api/ddc/<hdmi>
 
 
 class WebServer:
@@ -43,10 +43,10 @@ class WebServer:
             ("POST", "/api/update"): self.upload_update,
             ("GET", "/api/update/latest"): self.get_latest_release,
             ("POST", "/api/update/latest"): self.install_latest_release,
-            ("GET", "/api/ddc"): self.read_ddc,
+            ("GET", "/api/ddc/<hdmi>"): self.read_ddc,
         }
         self._event_streams = 0
-        self._protected = {("GET", "/config"), ("GET", "/api/config"), ("POST", "/api/config"), ("POST", "/api/update"), ("POST", "/api/update/latest"), ("GET", "/api/ddc")}  # Require admin_password, when set
+        self._protected = {("GET", "/config"), ("GET", "/api/config"), ("POST", "/api/config"), ("POST", "/api/update"), ("POST", "/api/update/latest")}  # Require admin_password, when set
 
     async def handle_client(self, reader, writer):
         try:
@@ -75,17 +75,14 @@ class WebServer:
         except (ValueError, UnicodeError):
             self.error(writer, "400 Bad Request", "Bad Request")
             return
-        path, _, query = path.partition("?")
-        parameters = {}
-        for parameter in query.split("&"):
-            name, _, value = parameter.partition("=")
-            if name:
-                parameters[name] = value
         path = path.rstrip("/") or "/"
         argument = None
         if path.startswith("/api/active_input/"):
             argument = path[len("/api/active_input/") :]
             path = "/api/active_input/<input>" if argument in ("A", "B") else None
+        elif path.startswith("/api/ddc/"):
+            argument = path[len("/api/ddc/") :]
+            path = "/api/ddc/<hdmi>" if argument in [str(hdmi) for hdmi in board.HDMI_DDC] else None
         handler = self._routes.get((method, path))
         if handler is None:
             if any(route_path == path for _, route_path in self._routes):
@@ -93,7 +90,7 @@ class WebServer:
             else:
                 self.error(writer, "404 Not Found", "404 Not Found")
         elif (method, path) not in self._protected or self.authorized(writer, headers):
-            await handler(Request(reader, writer, headers, argument, parameters))
+            await handler(Request(reader, writer, headers, argument))
 
     def write_response(self, writer, status_code, content, content_type="application/json", headers={}):
         content = content.encode()
@@ -201,32 +198,17 @@ class WebServer:
             await request.writer.drain()
         await self.install_update(request.writer, lambda: self.updater.install(request.reader.read, size))
 
-    def repository(self, request):
-        """The ?repository= of the request (the settings page's, maybe not saved yet), or the saved one; None after answering a bad one."""
-        repository = request.query.get("repository", Config.update_repository)
-        if not Config.is_repository(repository):
-            self.error(request.writer, "400 Bad Request", "Update repository: owner/name")
-            return None
-        return repository
-
     async def get_latest_release(self, request):
-        repository = self.repository(request)
-        if not repository:
-            return
         try:
-            latest = (await self.updater.latest_release(repository))["version"]
+            latest = (await self.updater.latest_release(Config.update_repository))["version"]
         except Exception as e:
             self.error(request.writer, "502 Bad Gateway", str(e))
         else:
             self.json_response(request.writer, "200 OK", {"version": self.updater.version, "latest": latest, "update_available": latest != self.updater.version})
 
     async def install_latest_release(self, request):
-        repository = self.repository(request)
-        if not repository:
-            return
-
         async def install():
-            return await self.updater.install_release(await self.updater.latest_release(repository))
+            return await self.updater.install_release(await self.updater.latest_release(Config.update_repository))
 
         await self.install_update(request.writer, install)
 
@@ -243,15 +225,11 @@ class WebServer:
             asyncio.create_task(self.updater.restart())
 
     async def read_ddc(self, request):
-        """What the DDC/CI monitor on ?hdmi=<port> tells: its name, current input value, and the input values it lists.
+        """What the DDC/CI monitor on HDMI port <hdmi> tells: its name, current input value, and the input values it lists.
 
         Each is null when the monitor does not tell it (or not reliably).
         """
-        try:
-            monitor = DdcMonitor(int(request.query.get("hdmi", "")), {"A": 0, "B": 0})
-        except ValueError as e:  # Not a number, no such port
-            self.error(request.writer, "400 Bad Request", str(e))
-            return
+        monitor = DdcMonitor(int(request.argument), {"A": 0, "B": 0})
         result = {"name": None, "input": None, "inputs": None}
         async with self.controller.lock:  # Not while a switch drives the same lines
             try:
