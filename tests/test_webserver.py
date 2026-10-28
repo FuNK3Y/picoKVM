@@ -5,7 +5,8 @@ import unittest
 from unittest.mock import patch
 
 import mocks
-from mocks import ClientSession, Partition, TestCase, image
+import board
+from mocks import ClientSession, Partition, SoftI2C, TestCase, image
 from config import Config
 from controller import Controller
 from metrics_provider import MetricsProvider
@@ -238,6 +239,23 @@ class WebServerTest(TestCase):
         self.assertEqual(status, "HTTP/1.1 502 Bad Gateway")
         self.assertIn("500", content["message"])
 
+    def ddc(self, hdmi, auth="secret"):
+        return self.request(f"GET /api/ddc/{hdmi} HTTP/1.1\r\n" + (credentials(auth) if auth else ""))
+
+    async def test_ddc(self):
+        from test_devices import DELL, capabilities_reply, edid
+
+        sda = board.HDMI_DDC[2][0]
+        status, _, content = await self.ddc(2, auth=None)  # Open, as the other reads
+        self.assertEqual((status, content), ("HTTP/1.1 200 OK", {"name": None, "input": None, "inputs": None}))
+        SoftI2C.replies[(sda, 0x50)] = edid()
+        _, _, content = await self.ddc(2)
+        self.assertEqual(content, {"name": "DELL U2723QE", "input": None, "inputs": None})
+        SoftI2C.replies[(sda, 0x37)] = capabilities_reply(DELL)
+        _, _, content = await self.ddc(2)
+        self.assertEqual(content, {"name": "DELL U2723QE", "input": 17, "inputs": [0x1B, 0x0F, 0x11, 0x12]})
+        for hdmi in (3, "x", ""):
+            self.assertEqual((await self.ddc(hdmi))[0], "HTTP/1.1 404 Not Found")
 
 if __name__ == "__main__":
     unittest.main()

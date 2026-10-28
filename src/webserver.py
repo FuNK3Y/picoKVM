@@ -1,11 +1,13 @@
 import asyncio
 import binascii
 import json
+import board
 import sys
 import config_html
 import index_html
 import style_css
 from config import Config
+from ddc_monitor import DdcMonitor
 
 
 class Request:
@@ -13,7 +15,7 @@ class Request:
         self.reader = reader
         self.writer = writer
         self.headers = headers
-        self.argument = argument  # The <input> of /api/active_input/<input>
+        self.argument = argument  # The <input> of /api/active_input/<input>, the <hdmi> of /api/ddc/<hdmi>
 
 
 class WebServer:
@@ -41,6 +43,7 @@ class WebServer:
             ("POST", "/api/update"): self.upload_update,
             ("GET", "/api/update/latest"): self.get_latest_release,
             ("POST", "/api/update/latest"): self.install_latest_release,
+            ("GET", "/api/ddc/<hdmi>"): self.read_ddc,
         }
         self._event_streams = 0
         self._protected = {("GET", "/config"), ("GET", "/api/config"), ("POST", "/api/config"), ("POST", "/api/update"), ("POST", "/api/update/latest")}  # Require admin_password, when set
@@ -77,6 +80,9 @@ class WebServer:
         if path.startswith("/api/active_input/"):
             argument = path[len("/api/active_input/") :]
             path = "/api/active_input/<input>" if argument in ("A", "B") else None
+        elif path.startswith("/api/ddc/"):
+            argument = path[len("/api/ddc/") :]
+            path = "/api/ddc/<hdmi>" if argument in [str(hdmi) for hdmi in board.HDMI_DDC] else None
         handler = self._routes.get((method, path))
         if handler is None:
             if any(route_path == path for _, route_path in self._routes):
@@ -217,3 +223,25 @@ class WebServer:
         else:
             self.json_response(writer, "200 OK", {"message": f"Restarting into {version}", "version": version})
             asyncio.create_task(self.updater.restart())
+
+    async def read_ddc(self, request):
+        """What the DDC/CI monitor on HDMI port <hdmi> tells: its name, current input value, and the input values it lists.
+
+        Each is null when the monitor does not tell it (or not reliably).
+        """
+        monitor = DdcMonitor(int(request.argument), {"A": 0, "B": 0})
+        result = {"name": None, "input": None, "inputs": None}
+        async with self.controller.lock:  # Not while a switch drives the same lines
+            try:
+                result["name"] = monitor.read_name()
+            except OSError:
+                pass
+            try:
+                result["input"] = await monitor.get_input()
+            except OSError:
+                pass
+            try:
+                result["inputs"] = await monitor.get_inputs()
+            except OSError:
+                pass
+        self.json_response(request.writer, "200 OK", result)

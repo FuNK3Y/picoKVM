@@ -78,10 +78,82 @@ content = r"""<!DOCTYPE html>
             padding: 2px;
         }
 
-        .monitor {
+        .subsection {
             border-top: 1px solid var(--border);
             margin-top: 14px;
             padding-top: 4px;
+        }
+
+        .monitor {
+            margin-bottom: 12px;
+            padding: 2px 12px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--background);
+        }
+
+        .monitor .status {
+            background: var(--surface);
+        }
+
+        [hidden] {
+            display: none !important; /* Over the display of the inputs */
+        }
+
+        h3 {
+            font-size: 15px;
+        }
+
+        .head {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+
+        .status {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            margin-top: 10px;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            background: var(--background);
+            font-size: 14px;
+        }
+
+        .status button.link {
+            margin-left: auto;
+        }
+
+        .dot {
+            flex: none;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--border);
+        }
+
+        .dot.on {
+            background: var(--ok);
+        }
+
+        .dot.warn {
+            background: var(--warn);
+        }
+
+        .dot.off {
+            background: var(--error);
+        }
+
+        button.link {
+            margin: 0;
+            padding: 0;
+            border: none;
+            background: none;
+            color: var(--accent);
+            font-size: 14px;
+            text-decoration: underline;
         }
 
         button {
@@ -127,17 +199,21 @@ content = r"""<!DOCTYPE html>
         <section>
             <h2>Firmware</h2>
             <div id="version" class="muted">Loading...</div>
-            <button id="check" onclick="checkUpdate()">Check for updates</button>
-            <button id="install" class="primary" hidden onclick="installLatest()"></button>
-            <label>Or upload firmware-ota.bin
-                <input id="file" type="file" accept=".bin">
-            </label>
-            <button onclick="upload()">Upload</button>
-            <progress id="progress" max="1" value="0" hidden></progress>
-            <div id="update-message" class="muted"></div>
             <label>Update repository (GitHub)
                 <input id="update_repository" placeholder="owner/name">
             </label>
+            <button id="check" onclick="checkUpdate()">Check for updates</button>
+            <button id="install" class="primary" hidden onclick="installLatest()"></button>
+            <div id="update-message" class="muted"></div>
+            <div class="subsection">
+                <h3>Manual update</h3>
+                <label>Firmware file (firmware-ota.bin)
+                    <input id="file" type="file" accept=".bin">
+                </label>
+                <button onclick="upload()">Upload</button>
+                <progress id="progress" max="1" value="0" hidden></progress>
+                <div id="upload-message" class="muted"></div>
+            </div>
         </section>
 
         <section>
@@ -166,8 +242,8 @@ content = r"""<!DOCTYPE html>
         <section>
             <h2>Monitors</h2>
             <div id="monitors"></div>
-            <button onclick="addDdc()">Add a DDC/CI monitor</button>
-            <button onclick="addOther()">Add another device (JSON)</button>
+            <button onclick="addDdc()">+ Add a DDC/CI monitor</button>
+            <button onclick="addOther()">+ Add another device (JSON)</button>
         </section>
 
         <section>
@@ -206,6 +282,101 @@ content = r"""<!DOCTYPE html>
             return input;
         }
 
+        // VCP 0x60 values, as MCCS names them: monitors give the values, not the names
+        const inputNames = { 1: 'VGA 1', 2: 'VGA 2', 3: 'DVI 1', 4: 'DVI 2', 5: 'Composite 1', 6: 'Composite 2', 7: 'S-Video 1', 8: 'S-Video 2', 9: 'Tuner 1', 10: 'Tuner 2', 11: 'Tuner 3', 12: 'Component 1', 13: 'Component 2', 14: 'Component 3', 15: 'DisplayPort 1', 16: 'DisplayPort 2', 17: 'HDMI 1', 18: 'HDMI 2' };
+        const commonInputs = [15, 16, 17, 18, 3, 1]; // When the monitor does not list its own
+        const readings = {}; // HDMI port -> what its monitor tells (GET /api/ddc), or the read in progress
+
+        function inputName(value) {
+            return (inputNames[value] || 'Other input') + ' (' + value + ')';
+        }
+
+        function readMonitor(hdmi, refresh) {
+            if (!refresh && readings[hdmi])
+                return readings[hdmi];
+            const read = fetch('/api/ddc/' + hdmi).then(async response => {
+                const result = await response.json();
+                if (!response.ok)
+                    throw new Error(result.message);
+                return result;
+            }).catch(error => ({ error: error.message })).then(result => {
+                if (readings[hdmi] === read) // Not an older read, finishing after a refresh
+                    readings[hdmi] = result;
+            });
+            return readings[hdmi] = read;
+        }
+
+        // The name and current input of the monitor on the port: dot color, text
+        function monitorStatus(hdmi, reading) {
+            if (!reading || reading instanceof Promise)
+                return ['', 'Reading the monitor...'];
+            if (reading.error)
+                return ['off', 'Could not read the monitor: ' + reading.error];
+            const name = reading.name || 'A monitor';
+            if (reading.input !== null)
+                return ['on', name + ', now on ' + inputName(reading.input)];
+            if (reading.name)
+                return ['warn', name + ' found, but it does not tell its input: enable DDC/CI in its menu'];
+            return ['off', 'No monitor answers on HDMI ' + hdmi + ': check the cable'];
+        }
+
+        // A list of the monitor's inputs (or the common ones), then Other value... for a number
+        function inputField(data, input, reading) {
+            const listed = reading && reading.inputs ? reading.inputs : commonInputs;
+            const values = [...new Set([...listed, data.inputs.A, data.inputs.B])];
+            const select = document.createElement('select');
+            for (const value of values)
+                select.append(new Option(inputName(value), value, false, value === data.inputs[input]));
+            select.append(new Option('Other value...', ''));
+            const other = numberInput(data.inputs[input], value => data.inputs[input] = value);
+            other.hidden = true;
+            select.onchange = () => {
+                other.hidden = select.value !== '';
+                if (select.value !== '')
+                    data.inputs[input] = parseInt(select.value);
+                else
+                    other.focus();
+            };
+            const label = field($('name_' + input).value, select);
+            label.append(other);
+            return label;
+        }
+
+        function renderDdc(box, data) {
+            const reading = readings[data.hdmi];
+            const port = document.createElement('select');
+            for (const hdmi of [1, 2])
+                port.append(new Option('HDMI ' + hdmi, hdmi, false, data.hdmi === hdmi));
+            port.onchange = () => {
+                data.hdmi = parseInt(port.value);
+                renderMonitors();
+            };
+            box.append(field('Port', port));
+            const [state, text] = monitorStatus(data.hdmi, reading);
+            const status = document.createElement('div');
+            status.className = 'status';
+            status.append(Object.assign(document.createElement('span'), { className: 'dot ' + state }), text);
+            const refresh = Object.assign(document.createElement('button'), { className: 'link', innerText: 'Refresh' });
+            refresh.onclick = () => {
+                readMonitor(data.hdmi, true).then(renderMonitors);
+                renderMonitors();
+            };
+            status.append(refresh);
+            box.append(status);
+            const values = document.createElement('div');
+            values.className = 'row';
+            for (const input of ['A', 'B'])
+                values.append(inputField(data, input, reading));
+            box.append(values);
+            const powerOn = document.createElement('input');
+            powerOn.type = 'checkbox';
+            powerOn.checked = !!data.power_on;
+            powerOn.onchange = () => data.power_on = powerOn.checked;
+            box.append(field(powerOn, ' Power the monitor on first'));
+            if (!reading)
+                readMonitor(data.hdmi).then(renderMonitors);
+        }
+
         function renderMonitors() {
             const container = $('monitors');
             container.replaceChildren();
@@ -214,30 +385,20 @@ content = r"""<!DOCTYPE html>
             monitors.forEach((monitor, index) => {
                 const box = document.createElement('div');
                 box.className = 'monitor';
+                const head = document.createElement('div');
+                head.className = 'head';
                 const title = document.createElement('h3');
                 title.innerText = monitor.type === 'DdcMonitor' ? 'DDC/CI monitor' : monitor.type;
-                box.append(title);
-                if (monitor.type === 'DdcMonitor') {
-                    const data = monitor.data;
-                    const port = document.createElement('select');
-                    for (const hdmi of [1, 2])
-                        port.append(new Option('HDMI ' + hdmi, hdmi, false, data.hdmi === hdmi));
-                    port.onchange = () => data.hdmi = parseInt(port.value);
-                    box.append(field('Port', port));
-                    const values = document.createElement('div');
-                    values.className = 'row';
-                    for (const input of ['A', 'B'])
-                        values.append(field($('name_' + input).value + ' (input ' + input + '): monitor input value',
-                            numberInput(data.inputs[input], value => data.inputs[input] = value)));
-                    box.append(values);
-                    box.append(Object.assign(document.createElement('div'), { className: 'muted', innerText: 'VCP 0x60 values, commonly 15 DisplayPort 1, 16 DisplayPort 2, 17 HDMI 1, 18 HDMI 2.' }));
-                    const powerOn = document.createElement('input');
-                    powerOn.type = 'checkbox';
-                    powerOn.checked = !!data.power_on;
-                    powerOn.onchange = () => data.power_on = powerOn.checked;
-                    const powerLabel = field(powerOn, ' Power the monitor on first');
-                    box.append(powerLabel);
-                } else {
+                const remove = Object.assign(document.createElement('button'), { className: 'link', innerText: 'Remove' });
+                remove.onclick = () => {
+                    monitors.splice(index, 1);
+                    renderMonitors();
+                };
+                head.append(title, remove);
+                box.append(head);
+                if (monitor.type === 'DdcMonitor')
+                    renderDdc(box, monitor.data);
+                else {
                     const text = document.createElement('textarea');
                     text.value = JSON.stringify(monitor, null, 2);
                     text.onchange = () => {
@@ -251,13 +412,6 @@ content = r"""<!DOCTYPE html>
                     };
                     box.append(text);
                 }
-                const remove = document.createElement('button');
-                remove.innerText = 'Remove';
-                remove.onclick = () => {
-                    monitors.splice(index, 1);
-                    renderMonitors();
-                };
-                box.append(remove);
                 container.append(box);
             });
         }
@@ -357,19 +511,19 @@ content = r"""<!DOCTYPE html>
         }
 
         // After an update: the device restarts into it, then confirms it once back on the network
-        async function waitForRestart() {
-            $('update-message').innerText = 'Restarting...';
+        async function waitForRestart(message) {
+            message.innerText = 'Restarting...';
             await new Promise(resolve => setTimeout(resolve, 5000));
             for (let attempt = 0; attempt < 60; attempt++) {
                 try {
                     await showVersion();
-                    $('update-message').innerText = '';
+                    message.innerText = '';
                     return;
                 } catch (e) {
                     await new Promise(resolve => setTimeout(resolve, 3000));
                 }
             }
-            $('update-message').innerText = 'The device did not come back: check it over USB';
+            message.innerText = 'The device did not come back: check it over USB';
         }
 
         async function installLatest() {
@@ -381,7 +535,7 @@ content = r"""<!DOCTYPE html>
                 if (!response.ok)
                     throw new Error(data.message);
                 $('install').hidden = true;
-                await waitForRestart();
+                await waitForRestart($('update-message'));
             } catch (e) {
                 $('update-message').innerText = 'Update failed: ' + e.message;
             }
@@ -391,7 +545,7 @@ content = r"""<!DOCTYPE html>
         function upload() {
             const file = $('file').files[0];
             if (!file) {
-                $('update-message').innerText = 'Choose firmware-ota.bin first';
+                $('upload-message').innerText = 'Choose firmware-ota.bin first';
                 return;
             }
             const request = new XMLHttpRequest(); // Unlike fetch, it reports the upload's progress
@@ -401,16 +555,16 @@ content = r"""<!DOCTYPE html>
                 $('progress').hidden = true;
                 const data = JSON.parse(request.responseText);
                 if (request.status !== 200)
-                    $('update-message').innerText = 'Update failed: ' + data.message;
+                    $('upload-message').innerText = 'Update failed: ' + data.message;
                 else
-                    await waitForRestart();
+                    await waitForRestart($('upload-message'));
             };
             request.onerror = () => {
                 $('progress').hidden = true;
-                $('update-message').innerText = 'Upload failed';
+                $('upload-message').innerText = 'Upload failed';
             };
             $('progress').hidden = false;
-            $('update-message').innerText = 'Uploading ' + file.name + '...';
+            $('upload-message').innerText = 'Uploading ' + file.name + '...';
             request.send(file);
         }
 
