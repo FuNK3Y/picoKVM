@@ -78,11 +78,22 @@ content = r"""<!DOCTYPE html>
             padding: 2px;
         }
 
-        .monitor,
         .subsection {
             border-top: 1px solid var(--border);
             margin-top: 14px;
             padding-top: 4px;
+        }
+
+        .monitor {
+            margin-bottom: 12px;
+            padding: 2px 12px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--background);
+        }
+
+        .monitor .status {
+            background: var(--surface);
         }
 
         [hidden] {
@@ -231,8 +242,8 @@ content = r"""<!DOCTYPE html>
         <section>
             <h2>Monitors</h2>
             <div id="monitors"></div>
-            <button onclick="addDdc()">Add a DDC/CI monitor</button>
-            <button onclick="addOther()">Add another device (JSON)</button>
+            <button onclick="addDdc()">+ Add a DDC/CI monitor</button>
+            <button onclick="addOther()">+ Add another device (JSON)</button>
         </section>
 
         <section>

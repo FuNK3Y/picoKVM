@@ -112,7 +112,7 @@ class Config:
     def is_repository(repository):
         """Whether repository is a GitHub owner/name."""
         parts = repository.split("/") if isinstance(repository, str) else []
-        return len(parts) == 2 and all(part and all(c.isalnum() or c in "-_." for c in part) for part in parts)
+        return len(parts) == 2 and all(part and all(c.isalpha() or c.isdigit() or c in "-_." for c in part) for part in parts)  # MicroPython has no isalnum()
 
     @staticmethod
     def _is_color(color):

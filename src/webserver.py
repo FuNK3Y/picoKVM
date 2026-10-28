@@ -76,7 +76,11 @@ class WebServer:
             self.error(writer, "400 Bad Request", "Bad Request")
             return
         path, _, query = path.partition("?")
-        query = dict(parameter.partition("=")[::2] for parameter in query.split("&") if parameter)
+        parameters = {}
+        for parameter in query.split("&"):
+            name, _, value = parameter.partition("=")
+            if name:
+                parameters[name] = value
         path = path.rstrip("/") or "/"
         argument = None
         if path.startswith("/api/active_input/"):
@@ -89,7 +93,7 @@ class WebServer:
             else:
                 self.error(writer, "404 Not Found", "404 Not Found")
         elif (method, path) not in self._protected or self.authorized(writer, headers):
-            await handler(Request(reader, writer, headers, argument, query))
+            await handler(Request(reader, writer, headers, argument, parameters))
 
     def write_response(self, writer, status_code, content, content_type="application/json", headers={}):
         content = content.encode()
