@@ -5,7 +5,8 @@ import unittest
 from unittest.mock import patch
 
 import mocks
-from mocks import ClientSession, Partition, TestCase, image
+import board
+from mocks import ClientSession, Partition, SoftI2C, TestCase, image
 from config import Config
 from controller import Controller
 from metrics_provider import MetricsProvider
@@ -250,6 +251,46 @@ class WebServerTest(TestCase):
         for path in ("GET /api/update/latest?repository=repo", "POST /api/update/latest?repository=a/b/c"):
             status, _, content = await self.request(path + " HTTP/1.1\r\n" + credentials("secret"))
             self.assertEqual((status, content["message"]), ("HTTP/1.1 400 Bad Request", "Update repository: owner/name"))
+
+    def ddc(self, test, auth="secret"):
+        body = json.dumps(test).encode()
+        return self.request(f"POST /api/ddc HTTP/1.1\r\nContent-Length: {len(body)}\r\n" + (credentials(auth) if auth else ""), body)
+
+    async def test_ddc_detect(self):
+        from test_devices import edid, vcp_reply
+
+        sda = board.HDMI_DDC[2][0]
+        self.assertEqual((await self.ddc({"hdmi": 2, "action": "detect"}, auth=None))[0], "HTTP/1.1 401 Unauthorized")
+        _, _, content = await self.ddc({"hdmi": 2, "action": "detect"})
+        self.assertEqual(content, {"name": None, "input": None, "message": "No monitor answers on HDMI 2: check the cable"})
+        SoftI2C.replies[(sda, 0x50)] = edid()
+        _, _, content = await self.ddc({"hdmi": 2, "action": "detect"})
+        self.assertEqual((content["name"], content["input"]), ("DELL U2723QE", None))
+        self.assertIn("enable DDC/CI", content["message"])
+        SoftI2C.replies[(sda, 0x37)] = vcp_reply(0x60, 15)
+        status, _, content = await self.ddc({"hdmi": 2, "action": "detect"})
+        self.assertEqual((status, content), ("HTTP/1.1 200 OK", {"name": "DELL U2723QE", "input": 15, "message": "DELL U2723QE, on input 15"}))
+        del SoftI2C.replies[(sda, 0x50)]
+        _, _, content = await self.ddc({"hdmi": 2, "action": "detect"})
+        self.assertEqual(content["message"], "A monitor, on input 15")
+
+    async def test_ddc_set(self):
+        status, _, content = await self.ddc({"hdmi": 1, "action": "set", "value": 18})
+        self.assertEqual((status, content["message"]), ("HTTP/1.1 200 OK", "Sent input 18 to the monitor on HDMI 1"))
+        self.assertEqual(SoftI2C.writes[-1][2][3:6], bytes([0x60, 0x00, 18]))
+        with patch.object(mocks.SoftI2C, "writeto", side_effect=OSError("ENODEV")):
+            status, _, content = await self.ddc({"hdmi": 1, "action": "set", "value": 18})
+        self.assertEqual(status, "HTTP/1.1 502 Bad Gateway")
+        self.assertIn("HDMI 1 failed", content["message"])
+        for test, message in (
+            ({"hdmi": 3, "action": "detect"}, "no HDMI port 3"),
+            ({"hdmi": 1, "action": "set", "value": None}, "value"),
+            ({"hdmi": 1, "action": "reset"}, "action"),
+            ([], "list"),
+        ):
+            status, _, content = await self.ddc(test)
+            self.assertEqual(status, "HTTP/1.1 400 Bad Request")
+            self.assertIn(message, content["message"])
 
 
 if __name__ == "__main__":

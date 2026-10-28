@@ -231,17 +231,20 @@ content = r"""<!DOCTYPE html>
                     box.append(field('Port', port));
                     const values = document.createElement('div');
                     values.className = 'row';
-                    for (const input of ['A', 'B'])
-                        values.append(field($('name_' + input).value + ' (input ' + input + '): monitor input value',
-                            numberInput(data.inputs[input], value => data.inputs[input] = value)));
+                    const valueInputs = {};
+                    for (const input of ['A', 'B']) {
+                        valueInputs[input] = numberInput(data.inputs[input], value => data.inputs[input] = value);
+                        values.append(field($('name_' + input).value + ' (input ' + input + '): monitor input value', valueInputs[input]));
+                    }
                     box.append(values);
-                    box.append(Object.assign(document.createElement('div'), { className: 'muted', innerText: 'VCP 0x60 values, commonly 15 DisplayPort 1, 16 DisplayPort 2, 17 HDMI 1, 18 HDMI 2.' }));
+                    box.append(Object.assign(document.createElement('div'), { className: 'muted', innerText: 'VCP 0x60 values, commonly 15 DisplayPort 1, 16 DisplayPort 2, 17 HDMI 1, 18 HDMI 2. Detect reads the one the monitor is on.' }));
                     const powerOn = document.createElement('input');
                     powerOn.type = 'checkbox';
                     powerOn.checked = !!data.power_on;
                     powerOn.onchange = () => data.power_on = powerOn.checked;
                     const powerLabel = field(powerOn, ' Power the monitor on first');
                     box.append(powerLabel);
+                    box.append(ddcTest(data, valueInputs));
                 } else {
                     const text = document.createElement('textarea');
                     text.value = JSON.stringify(monitor, null, 2);
@@ -265,6 +268,43 @@ content = r"""<!DOCTYPE html>
                 box.append(remove);
                 container.append(box);
             });
+        }
+
+        function button(text, onclick) {
+            return Object.assign(document.createElement('button'), { type: 'button', innerText: text, onclick });
+        }
+
+        // Detect and Switch to buttons, trying the monitor out with the form's settings, saved or not
+        function ddcTest(data, valueInputs) {
+            const test = document.createElement('div');
+            const status = Object.assign(document.createElement('div'), { className: 'muted' });
+            const use = document.createElement('div');
+            async function send(body) {
+                status.innerText = 'Testing...';
+                use.replaceChildren();
+                try {
+                    const response = await fetch('/api/ddc', { method: 'POST', body: JSON.stringify(Object.assign({ hdmi: data.hdmi }, body)) });
+                    const result = await response.json();
+                    status.innerText = result.message;
+                    return response.ok ? result : null;
+                } catch (e) {
+                    status.innerText = 'Test failed: ' + e.message;
+                }
+            }
+            test.append(button('Detect', async () => {
+                const result = await send({ action: 'detect' });
+                if (result && result.input !== null)
+                    for (const input of ['A', 'B'])
+                        use.append(button('Use ' + result.input + ' for ' + $('name_' + input).value, () => {
+                            data.inputs[input] = valueInputs[input].value = result.input;
+                            status.innerText = 'Set: Save to keep it';
+                            use.replaceChildren();
+                        }));
+            }));
+            for (const input of ['A', 'B'])
+                test.append(' ', button('Switch to ' + $('name_' + input).value, () => send({ action: 'set', value: data.inputs[input], power_on: data.power_on })));
+            test.append(status, use);
+            return test;
         }
 
         function addDdc() {

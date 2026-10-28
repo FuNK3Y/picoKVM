@@ -62,12 +62,18 @@ class WDT:
 
 class SoftI2C:
     writes = []
+    replies = {}  # (SDA pin, address) -> bytes readfrom() returns; others do not answer
 
     def __init__(self, sda, scl, freq):
         self.sda = sda.number
 
     def writeto(self, address, data):
         SoftI2C.writes.append((self.sda, address, bytes(data)))
+
+    def readfrom(self, address, size):
+        if (self.sda, address) not in SoftI2C.replies:
+            raise OSError(19)  # ENODEV: NACK
+        return SoftI2C.replies[(self.sda, address)][:size]
 
 
 def reset():
@@ -321,6 +327,7 @@ class TestCase(unittest.IsolatedAsyncioTestCase):
         WLAN.joined = None
         WLAN.scanned = []
         SoftI2C.writes.clear()
+        SoftI2C.replies.clear()
         for recorded in (ClientSession.served, ClientSession.requests, ClientSession.connections, ClientSession.received, ClientSession.sent):
             recorded.clear()
 

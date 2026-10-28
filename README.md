@@ -60,7 +60,7 @@ It travels over plain HTTP, so anyone able to watch the network traffic can read
 Monitors are added on the settings page: a form for DDC/CI monitors, JSON for the others ([`config.example.json`](config.example.json) has an example of each).
 
 #### DDC/CI monitors
-Enable DDC/CI in the monitor's menu. For each computer, set the value of the monitor input it is on (VCP `0x60`): commonly `15` (DisplayPort 1), `16` (DisplayPort 2), `17` (HDMI 1), `18` (HDMI 2). Some monitors use their own values: read them with `ddcutil getvcp 60` (Linux) or *ControlMyMonitor* (Windows) while each input is active. *Power the monitor on first* wakes up monitors that keep DDC/CI alive in standby.
+Enable DDC/CI in the monitor's menu. For each computer, set the value of the monitor input it is on (VCP `0x60`): commonly `15` (DisplayPort 1), `16` (DisplayPort 2), `17` (HDMI 1), `18` (HDMI 2). Some monitors use their own values: put the monitor on each computer's input, then *Detect* on the settings page reads its value (or `ddcutil getvcp 60` on Linux, *ControlMyMonitor* on Windows). *Switch to* tries the values out before saving them. *Power the monitor on first* wakes up monitors that keep DDC/CI alive in standby.
 
 The monitor must accept DDC/CI on an input that is not the active one, since it is showing the other computer when the command arrives. Most do: tested on **AOC, Samsung, Dell, Acer, Philips and Lenovo** monitors. Some have no DDC/CI at all (the Samsung G80SD): drive those over the network.
 

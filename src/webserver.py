@@ -6,6 +6,7 @@ import config_html
 import index_html
 import style_css
 from config import Config
+from ddc_monitor import DdcMonitor
 
 
 class Request:
@@ -20,7 +21,7 @@ class Request:
 class WebServer:
     _MAX_EVENT_STREAMS = 4  # Each open page holds a socket
     _EVENT_INTERVAL = 20  # s: the state is sent again at least this often, which also finds the pages gone
-    _MAX_CONFIG_SIZE = 16384  # bytes
+    _MAX_BODY_SIZE = 16384  # bytes, of a JSON request
 
     def __init__(self, controller, metrics_provider, updater):
         self.metrics_provider = metrics_provider
@@ -42,9 +43,10 @@ class WebServer:
             ("POST", "/api/update"): self.upload_update,
             ("GET", "/api/update/latest"): self.get_latest_release,
             ("POST", "/api/update/latest"): self.install_latest_release,
+            ("POST", "/api/ddc"): self.test_ddc,
         }
         self._event_streams = 0
-        self._protected = {("GET", "/config"), ("GET", "/api/config"), ("POST", "/api/config"), ("POST", "/api/update"), ("POST", "/api/update/latest")}  # Require admin_password, when set
+        self._protected = {("GET", "/config"), ("GET", "/api/config"), ("POST", "/api/config"), ("POST", "/api/update"), ("POST", "/api/update/latest"), ("POST", "/api/ddc")}  # Require admin_password, when set
 
     async def handle_client(self, reader, writer):
         try:
@@ -163,18 +165,29 @@ class WebServer:
     async def get_config(self, request):
         self.json_response(request.writer, "200 OK", Config.public())
 
-    async def set_config(self, request):
+    async def read_json(self, request):
+        """The request's JSON body; None after answering an invalid one."""
         try:
             size = int(request.headers["content-length"])
         except (KeyError, ValueError):
             self.error(request.writer, "411 Length Required", "Content-Length required")
-            return
-        if size > self._MAX_CONFIG_SIZE:
-            self.error(request.writer, "413 Content Too Large", f"At most {self._MAX_CONFIG_SIZE} bytes")
+            return None
+        if size > self._MAX_BODY_SIZE:
+            self.error(request.writer, "413 Content Too Large", f"At most {self._MAX_BODY_SIZE} bytes")
+            return None
+        try:
+            return json.loads(await request.reader.readexactly(size))
+        except ValueError:
+            self.error(request.writer, "400 Bad Request", "Invalid JSON")
+            return None
+
+    async def set_config(self, request):
+        settings = await self.read_json(request)
+        if settings is None:
             return
         try:
-            restart = Config.apply(json.loads(await request.reader.readexactly(size)))
-        except ValueError as e:  # Invalid JSON too
+            restart = Config.apply(settings)
+        except ValueError as e:
             self.error(request.writer, "400 Bad Request", str(e))
             return
         self.json_response(request.writer, "200 OK", {"message": "Saved, restarting" if restart else "Saved", "restart": restart})
@@ -235,3 +248,49 @@ class WebServer:
         else:
             self.json_response(writer, "200 OK", {"message": f"Restarting into {version}", "version": version})
             asyncio.create_task(self.updater.restart())
+
+    async def test_ddc(self, request):
+        """Tries a DDC/CI monitor out, as the settings page has it (saved or not).
+
+        {"hdmi": 1, "action": "detect"} reads the monitor's name and current input value;
+        {"hdmi": 1, "action": "set", "value": 17, "power_on": false} switches it to that input.
+        """
+        test = await self.read_json(request)
+        if test is None:
+            return
+        try:
+            value = test.get("value", 0)
+            if not isinstance(value, int) or not 0 <= value <= 0xFFFF:
+                raise ValueError("value: the monitor input value, a number")
+            monitor = DdcMonitor(test.get("hdmi"), {"A": value, "B": value}, power_on=bool(test.get("power_on")))
+            if test.get("action") not in ("detect", "set"):
+                raise ValueError("action: detect or set")
+        except (AttributeError, ValueError) as e:  # Not an object, no such port, a value that is not a number
+            self.error(request.writer, "400 Bad Request", str(e))
+            return
+        async with self.controller.lock:  # Not while a switch drives the same lines
+            if test["action"] == "set":
+                try:
+                    await monitor.set_active_input("A")
+                except OSError as e:
+                    self.error(request.writer, "502 Bad Gateway", str(e))
+                else:
+                    self.json_response(request.writer, "200 OK", {"message": f"Sent input {value} to the monitor on HDMI {monitor.hdmi}"})
+                return
+            try:
+                name = monitor.read_name()
+            except OSError:
+                name = None
+            try:
+                input = await monitor.get_input()
+            except OSError:
+                input = None
+        if name and input is not None:
+            message = f"{name}, on input {input}"
+        elif name:
+            message = f"{name} found, but it did not tell its input: enable DDC/CI in its menu. Some monitors only take commands: try the Switch to buttons"
+        elif input is not None:
+            message = f"A monitor, on input {input}"
+        else:
+            message = f"No monitor answers on HDMI {monitor.hdmi}: check the cable"
+        self.json_response(request.writer, "200 OK", {"name": name, "input": input, "message": message})

@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch
 
+import board
 from mocks import ClientSession, SoftI2C, TestCase
 from ddc_monitor import DdcMonitor
 from device import Device
@@ -58,6 +59,65 @@ class DdcMonitorTest(TestCase):
         with patch.object(SoftI2C, "writeto", side_effect=OSError("ENODEV")):
             with self.assertRaisesRegex(OSError, "monitor on HDMI 1 failed"):
                 await DdcMonitor(hdmi=1, inputs={"A": 15, "B": 17}).set_active_input("A")
+
+
+def edid(name=b"DELL U2723QE"):
+    """A 128-byte EDID block: header, vendor DEL, and a display name descriptor unless name is None."""
+    data = bytearray(128)
+    data[0:8] = b"\x00\xff\xff\xff\xff\xff\xff\x00"
+    data[8:10] = bytes([0x10, 0xAC])  # D, E, L
+    if name is not None:
+        data[72:77] = b"\x00\x00\x00\xfc\x00"
+        data[77:90] = (name + b"\n").ljust(13, b" ")
+    data[127] = -sum(data) & 0xFF
+    return bytes(data)
+
+
+def vcp_reply(code, current, result=0x00, maximum=0xFF):
+    reply = bytes([0x6E, 0x88, 0x02, result, code, 0x00, maximum >> 8, maximum & 0xFF, current >> 8, current & 0xFF])
+    checksum = 0x50
+    for byte in reply:
+        checksum ^= byte
+    return reply + bytes([checksum])
+
+
+class DdcMonitorReadTest(TestCase):
+    def setUp(self):
+        super().setUp()
+        self.monitor = DdcMonitor(hdmi=1, inputs={"A": 15, "B": 17})
+        self.sda = board.HDMI_DDC[1][0]
+
+    async def test_reads_the_input(self):
+        SoftI2C.replies[(self.sda, 0x37)] = vcp_reply(0x60, 0x0311)  # A high byte some monitors add
+        self.assertEqual(await self.monitor.get_input(), 17)
+        self.assertEqual(SoftI2C.writes, [(self.sda, 0x37, bytes([0x51, 0x82, 0x01, 0x60, 0x6E ^ 0x51 ^ 0x82 ^ 0x01 ^ 0x60]))])
+
+    async def test_bad_replies(self):
+        for reply, message in (
+            (vcp_reply(0x60, 17)[:10] + b"\x00", "no valid reply"),  # Checksum
+            (vcp_reply(0x10, 17), "no valid reply"),  # Another code
+            (bytes([0x6E, 0x80, 0xBE]) + bytes(8), "no valid reply"),  # Null message: busy
+            (vcp_reply(0x60, 0, result=0x01), "does not support VCP 0x60"),
+        ):
+            SoftI2C.replies[(self.sda, 0x37)] = reply
+            with self.assertRaisesRegex(OSError, message):
+                await self.monitor.get_vcp(0x60)
+        del SoftI2C.replies[(self.sda, 0x37)]
+        with self.assertRaisesRegex(OSError, "read from the monitor on HDMI 1 failed"):
+            await self.monitor.get_vcp(0x60)
+
+    def test_name(self):
+        SoftI2C.replies[(self.sda, 0x50)] = edid()
+        self.assertEqual(self.monitor.read_name(), "DELL U2723QE")
+        self.assertIn((self.sda, 0x50, b"\x00"), SoftI2C.writes)
+        SoftI2C.replies[(self.sda, 0x50)] = edid(name=None)
+        self.assertEqual(self.monitor.read_name(), "DEL monitor")
+        SoftI2C.replies[(self.sda, 0x50)] = edid()[:127] + b"\x00"
+        with self.assertRaisesRegex(OSError, "invalid EDID"):
+            self.monitor.read_name()
+        del SoftI2C.replies[(self.sda, 0x50)]
+        with self.assertRaisesRegex(OSError, "No monitor answers on HDMI 1"):
+            self.monitor.read_name()
 
 
 class DeviceTest(unittest.TestCase):
