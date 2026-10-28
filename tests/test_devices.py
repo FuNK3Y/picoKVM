@@ -81,6 +81,26 @@ def vcp_reply(code, current, result=0x00, maximum=0xFF):
     return reply + bytes([checksum])
 
 
+def capabilities_reply(capabilities):
+    """A monitor answering capabilities requests with capabilities, 32 bytes at a time (and its VCP reads with input 17)."""
+
+    def reply(request):
+        if request[2] != 0xF3:
+            return vcp_reply(0x60, 17)
+        offset = (request[3] << 8) | request[4]
+        fragment = capabilities[offset : offset + 32]
+        message = bytes([0x6E, 0x80 | (len(fragment) + 3), 0xE3, request[3], request[4]]) + fragment
+        checksum = 0x50
+        for byte in message:
+            checksum ^= byte
+        return message + bytes([checksum]) + b"\xff" * 4
+
+    return reply
+
+
+DELL = b"(prot(monitor)type(LCD)model(U2723QE)cmds(01 02 03 07 0C E3 F3)vcp(02 04 05 10 12 14(05 08 0B) 60(1B 0F 11 12) 62 D6(01 04 05) E8)vcpname(E8(Custom)))"
+
+
 class DdcMonitorReadTest(TestCase):
     def setUp(self):
         super().setUp()
@@ -90,7 +110,20 @@ class DdcMonitorReadTest(TestCase):
     async def test_reads_the_input(self):
         SoftI2C.replies[(self.sda, 0x37)] = vcp_reply(0x60, 0x0311)  # A high byte some monitors add
         self.assertEqual(await self.monitor.get_input(), 17)
-        self.assertEqual(SoftI2C.writes, [(self.sda, 0x37, bytes([0x51, 0x82, 0x01, 0x60, 0x6E ^ 0x51 ^ 0x82 ^ 0x01 ^ 0x60]))])
+        self.assertEqual(SoftI2C.writes[0], (self.sda, 0x37, bytes([0x51, 0x82, 0x01, 0x60, 0x6E ^ 0x51 ^ 0x82 ^ 0x01 ^ 0x60])))
+        self.assertEqual(len(SoftI2C.writes), 2)  # Read twice, to agree
+
+    async def test_input_read_until_two_agree(self):
+        replies = [vcp_reply(0x60, 15), b"\x00" * 11, vcp_reply(0x60, 17), vcp_reply(0x60, 17)]
+        SoftI2C.replies[(self.sda, 0x37)] = lambda request: replies.pop(0)
+        self.assertEqual(await self.monitor.get_input(), 17)
+        values = iter([15, 17] * 2)
+        SoftI2C.replies[(self.sda, 0x37)] = lambda request: vcp_reply(0x60, next(values))
+        with self.assertRaisesRegex(OSError, "changing values"):
+            await self.monitor.get_input()
+        SoftI2C.replies[(self.sda, 0x37)] = b"\x00" * 11
+        with self.assertRaisesRegex(OSError, "no valid reply"):
+            await self.monitor.get_input()
 
     async def test_bad_replies(self):
         for reply, message in (
@@ -105,6 +138,35 @@ class DdcMonitorReadTest(TestCase):
         del SoftI2C.replies[(self.sda, 0x37)]
         with self.assertRaisesRegex(OSError, "read from the monitor on HDMI 1 failed"):
             await self.monitor.get_vcp(0x60)
+
+    async def test_inputs(self):
+        SoftI2C.replies[(self.sda, 0x37)] = capabilities_reply(DELL)
+        self.assertEqual(await self.monitor.get_capabilities(), DELL.decode())
+        self.assertEqual(await self.monitor.get_inputs(), [0x1B, 0x0F, 0x11, 0x12])
+        for capabilities, inputs in (
+            (b"(vcp(10 60 (0f 11 zz 11) 62))", [0x0F, 0x11]),  # A space before the values, garbage, a repeat
+            (b"(vcp(10 14(05 08) 62)vcpname(60(Input)))", None),  # No 60 in vcp(), only in vcpname()
+            (b"(vcp(60() 62))", None),
+            (b"(type(lcd))", None),
+            (b"(vcp(10 60", None),  # Cut short
+            (b"(vcp(10 60(0F 11", [0x0F, 0x11]),
+        ):
+            SoftI2C.replies[(self.sda, 0x37)] = capabilities_reply(capabilities)
+            self.assertEqual(await self.monitor.get_inputs(), inputs, capabilities)
+
+    async def test_capabilities_garbage(self):
+        good = capabilities_reply(DELL)
+        replies = [b"\x6e\x80\xbe" + b"\x00" * 35]  # Busy once: retried
+        SoftI2C.replies[(self.sda, 0x37)] = lambda request: replies.pop(0) if replies else good(request)
+        self.assertEqual(await self.monitor.get_inputs(), [0x1B, 0x0F, 0x11, 0x12])
+        SoftI2C.replies[(self.sda, 0x37)] = lambda request: good(request)[:-5] + b"\x00" * 5  # Bad checksum
+        with self.assertRaisesRegex(OSError, "invalid capabilities"):
+            await self.monitor.get_capabilities()
+        SoftI2C.replies[(self.sda, 0x37)] = capabilities_reply(b"x" * 5000)  # Never ends
+        self.assertEqual(len(await self.monitor.get_capabilities()), 1024)
+        del SoftI2C.replies[(self.sda, 0x37)]
+        with self.assertRaises(OSError):
+            await self.monitor.get_inputs()
 
     def test_name(self):
         SoftI2C.replies[(self.sda, 0x50)] = edid()

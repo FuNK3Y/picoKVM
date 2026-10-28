@@ -85,6 +85,66 @@ content = r"""<!DOCTYPE html>
             padding-top: 4px;
         }
 
+        [hidden] {
+            display: none !important; /* Over the display of the inputs */
+        }
+
+        h3 {
+            font-size: 15px;
+        }
+
+        .head {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+
+        .status {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            margin-top: 10px;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            background: var(--background);
+            font-size: 14px;
+        }
+
+        .status button.link {
+            margin-left: auto;
+        }
+
+        .dot {
+            flex: none;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--border);
+        }
+
+        .dot.on {
+            background: var(--ok);
+        }
+
+        .dot.warn {
+            background: var(--warn);
+        }
+
+        .dot.off {
+            background: var(--error);
+        }
+
+        button.link {
+            margin: 0;
+            padding: 0;
+            border: none;
+            background: none;
+            color: var(--accent);
+            font-size: 14px;
+            text-decoration: underline;
+        }
+
         button {
             margin-top: 12px;
             padding: 8px 14px;
@@ -211,6 +271,101 @@ content = r"""<!DOCTYPE html>
             return input;
         }
 
+        // VCP 0x60 values, as MCCS names them: monitors give the values, not the names
+        const inputNames = { 1: 'VGA 1', 2: 'VGA 2', 3: 'DVI 1', 4: 'DVI 2', 5: 'Composite 1', 6: 'Composite 2', 7: 'S-Video 1', 8: 'S-Video 2', 9: 'Tuner 1', 10: 'Tuner 2', 11: 'Tuner 3', 12: 'Component 1', 13: 'Component 2', 14: 'Component 3', 15: 'DisplayPort 1', 16: 'DisplayPort 2', 17: 'HDMI 1', 18: 'HDMI 2' };
+        const commonInputs = [15, 16, 17, 18, 3, 1]; // When the monitor does not list its own
+        const readings = {}; // HDMI port -> what its monitor tells (GET /api/ddc), or the read in progress
+
+        function inputName(value) {
+            return (inputNames[value] || 'Other input') + ' (' + value + ')';
+        }
+
+        function readMonitor(hdmi, refresh) {
+            if (!refresh && readings[hdmi])
+                return readings[hdmi];
+            const read = fetch('/api/ddc?hdmi=' + hdmi).then(async response => {
+                const result = await response.json();
+                if (!response.ok)
+                    throw new Error(result.message);
+                return result;
+            }).catch(error => ({ error: error.message })).then(result => {
+                if (readings[hdmi] === read) // Not an older read, finishing after a refresh
+                    readings[hdmi] = result;
+            });
+            return readings[hdmi] = read;
+        }
+
+        // The name and current input of the monitor on the port: dot color, text
+        function monitorStatus(hdmi, reading) {
+            if (!reading || reading instanceof Promise)
+                return ['', 'Reading the monitor...'];
+            if (reading.error)
+                return ['off', 'Could not read the monitor: ' + reading.error];
+            const name = reading.name || 'A monitor';
+            if (reading.input !== null)
+                return ['on', name + ', now on ' + inputName(reading.input)];
+            if (reading.name)
+                return ['warn', name + ' found, but it does not tell its input: enable DDC/CI in its menu'];
+            return ['off', 'No monitor answers on HDMI ' + hdmi + ': check the cable'];
+        }
+
+        // A list of the monitor's inputs (or the common ones), then Other value... for a number
+        function inputField(data, input, reading) {
+            const listed = reading && reading.inputs ? reading.inputs : commonInputs;
+            const values = [...new Set([...listed, data.inputs.A, data.inputs.B])];
+            const select = document.createElement('select');
+            for (const value of values)
+                select.append(new Option(inputName(value), value, false, value === data.inputs[input]));
+            select.append(new Option('Other value...', ''));
+            const other = numberInput(data.inputs[input], value => data.inputs[input] = value);
+            other.hidden = true;
+            select.onchange = () => {
+                other.hidden = select.value !== '';
+                if (select.value !== '')
+                    data.inputs[input] = parseInt(select.value);
+                else
+                    other.focus();
+            };
+            const label = field($('name_' + input).value, select);
+            label.append(other);
+            return label;
+        }
+
+        function renderDdc(box, data) {
+            const reading = readings[data.hdmi];
+            const port = document.createElement('select');
+            for (const hdmi of [1, 2])
+                port.append(new Option('HDMI ' + hdmi, hdmi, false, data.hdmi === hdmi));
+            port.onchange = () => {
+                data.hdmi = parseInt(port.value);
+                renderMonitors();
+            };
+            box.append(field('Port', port));
+            const [state, text] = monitorStatus(data.hdmi, reading);
+            const status = document.createElement('div');
+            status.className = 'status';
+            status.append(Object.assign(document.createElement('span'), { className: 'dot ' + state }), text);
+            const refresh = Object.assign(document.createElement('button'), { className: 'link', innerText: 'Refresh' });
+            refresh.onclick = () => {
+                readMonitor(data.hdmi, true).then(renderMonitors);
+                renderMonitors();
+            };
+            status.append(refresh);
+            box.append(status);
+            const values = document.createElement('div');
+            values.className = 'row';
+            for (const input of ['A', 'B'])
+                values.append(inputField(data, input, reading));
+            box.append(values);
+            const powerOn = document.createElement('input');
+            powerOn.type = 'checkbox';
+            powerOn.checked = !!data.power_on;
+            powerOn.onchange = () => data.power_on = powerOn.checked;
+            box.append(field(powerOn, ' Power the monitor on first'));
+            if (!reading)
+                readMonitor(data.hdmi).then(renderMonitors);
+        }
+
         function renderMonitors() {
             const container = $('monitors');
             container.replaceChildren();
@@ -219,33 +374,20 @@ content = r"""<!DOCTYPE html>
             monitors.forEach((monitor, index) => {
                 const box = document.createElement('div');
                 box.className = 'monitor';
+                const head = document.createElement('div');
+                head.className = 'head';
                 const title = document.createElement('h3');
                 title.innerText = monitor.type === 'DdcMonitor' ? 'DDC/CI monitor' : monitor.type;
-                box.append(title);
-                if (monitor.type === 'DdcMonitor') {
-                    const data = monitor.data;
-                    const port = document.createElement('select');
-                    for (const hdmi of [1, 2])
-                        port.append(new Option('HDMI ' + hdmi, hdmi, false, data.hdmi === hdmi));
-                    port.onchange = () => data.hdmi = parseInt(port.value);
-                    box.append(field('Port', port));
-                    const values = document.createElement('div');
-                    values.className = 'row';
-                    const valueInputs = {};
-                    for (const input of ['A', 'B']) {
-                        valueInputs[input] = numberInput(data.inputs[input], value => data.inputs[input] = value);
-                        values.append(field($('name_' + input).value + ' (input ' + input + '): monitor input value', valueInputs[input]));
-                    }
-                    box.append(values);
-                    box.append(Object.assign(document.createElement('div'), { className: 'muted', innerText: 'VCP 0x60 values, commonly 15 DisplayPort 1, 16 DisplayPort 2, 17 HDMI 1, 18 HDMI 2. Detect reads the one the monitor is on.' }));
-                    const powerOn = document.createElement('input');
-                    powerOn.type = 'checkbox';
-                    powerOn.checked = !!data.power_on;
-                    powerOn.onchange = () => data.power_on = powerOn.checked;
-                    const powerLabel = field(powerOn, ' Power the monitor on first');
-                    box.append(powerLabel);
-                    box.append(ddcTest(data, valueInputs));
-                } else {
+                const remove = Object.assign(document.createElement('button'), { className: 'link', innerText: 'Remove' });
+                remove.onclick = () => {
+                    monitors.splice(index, 1);
+                    renderMonitors();
+                };
+                head.append(title, remove);
+                box.append(head);
+                if (monitor.type === 'DdcMonitor')
+                    renderDdc(box, monitor.data);
+                else {
                     const text = document.createElement('textarea');
                     text.value = JSON.stringify(monitor, null, 2);
                     text.onchange = () => {
@@ -259,52 +401,8 @@ content = r"""<!DOCTYPE html>
                     };
                     box.append(text);
                 }
-                const remove = document.createElement('button');
-                remove.innerText = 'Remove';
-                remove.onclick = () => {
-                    monitors.splice(index, 1);
-                    renderMonitors();
-                };
-                box.append(remove);
                 container.append(box);
             });
-        }
-
-        function button(text, onclick) {
-            return Object.assign(document.createElement('button'), { type: 'button', innerText: text, onclick });
-        }
-
-        // Detect and Switch to buttons, trying the monitor out with the form's settings, saved or not
-        function ddcTest(data, valueInputs) {
-            const test = document.createElement('div');
-            const status = Object.assign(document.createElement('div'), { className: 'muted' });
-            const use = document.createElement('div');
-            async function send(body) {
-                status.innerText = 'Testing...';
-                use.replaceChildren();
-                try {
-                    const response = await fetch('/api/ddc', { method: 'POST', body: JSON.stringify(Object.assign({ hdmi: data.hdmi }, body)) });
-                    const result = await response.json();
-                    status.innerText = result.message;
-                    return response.ok ? result : null;
-                } catch (e) {
-                    status.innerText = 'Test failed: ' + e.message;
-                }
-            }
-            test.append(button('Detect', async () => {
-                const result = await send({ action: 'detect' });
-                if (result && result.input !== null)
-                    for (const input of ['A', 'B'])
-                        use.append(button('Use ' + result.input + ' for ' + $('name_' + input).value, () => {
-                            data.inputs[input] = valueInputs[input].value = result.input;
-                            status.innerText = 'Set: Save to keep it';
-                            use.replaceChildren();
-                        }));
-            }));
-            for (const input of ['A', 'B'])
-                test.append(' ', button('Switch to ' + $('name_' + input).value, () => send({ action: 'set', value: data.inputs[input], power_on: data.power_on })));
-            test.append(status, use);
-            return test;
         }
 
         function addDdc() {

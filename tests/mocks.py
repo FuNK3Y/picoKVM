@@ -62,7 +62,7 @@ class WDT:
 
 class SoftI2C:
     writes = []
-    replies = {}  # (SDA pin, address) -> bytes readfrom() returns; others do not answer
+    replies = {}  # (SDA pin, address) -> bytes readfrom() returns, or a function of the last write there giving them; others do not answer
 
     def __init__(self, sda, scl, freq):
         self.sda = sda.number
@@ -73,7 +73,10 @@ class SoftI2C:
     def readfrom(self, address, size):
         if (self.sda, address) not in SoftI2C.replies:
             raise OSError(19)  # ENODEV: NACK
-        return SoftI2C.replies[(self.sda, address)][:size]
+        reply = SoftI2C.replies[(self.sda, address)]
+        if callable(reply):
+            reply = reply([data for sda, written, data in SoftI2C.writes if (sda, written) == (self.sda, address)][-1])
+        return reply[:size]
 
 
 def reset():

@@ -8,6 +8,8 @@ content = r""":root {
     --border: #d5dbe1;
     --accent: #5f7c93;
     --error: #d12c0c;
+    --ok: #2e8540;
+    --warn: #c27c0e;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -19,6 +21,8 @@ content = r""":root {
         --border: #343b42;
         --accent: #92a5b4;
         --error: #ff6a4d;
+        --ok: #5cc171;
+        --warn: #f0b04a;
     }
 }
 
