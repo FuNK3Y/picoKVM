@@ -238,6 +238,19 @@ class WebServerTest(TestCase):
         self.assertEqual(status, "HTTP/1.1 502 Bad Gateway")
         self.assertIn("500", content["message"])
 
+    async def test_latest_release_of_the_page_repository(self):
+        from test_release import serve
+
+        serve()
+        Config.update_repository = "other/repo"  # Saved; the page asks for the one in its field
+        _, _, content = await self.request("GET /api/update/latest?repository=owner/repo HTTP/1.1\r\n")
+        self.assertEqual(content["latest"], "v2.0.0")
+        status, _, content = await self.request("POST /api/update/latest?repository=owner/repo HTTP/1.1\r\n" + credentials("secret"))
+        self.assertEqual((status, content["version"]), ("HTTP/1.1 200 OK", "v2.0.0"))
+        for path in ("GET /api/update/latest?repository=repo", "POST /api/update/latest?repository=a/b/c"):
+            status, _, content = await self.request(path + " HTTP/1.1\r\n" + credentials("secret"))
+            self.assertEqual((status, content["message"]), ("HTTP/1.1 400 Bad Request", "Update repository: owner/name"))
+
 
 if __name__ == "__main__":
     unittest.main()

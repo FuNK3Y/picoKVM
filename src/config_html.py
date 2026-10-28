@@ -78,7 +78,8 @@ content = r"""<!DOCTYPE html>
             padding: 2px;
         }
 
-        .monitor {
+        .monitor,
+        .subsection {
             border-top: 1px solid var(--border);
             margin-top: 14px;
             padding-top: 4px;
@@ -127,17 +128,21 @@ content = r"""<!DOCTYPE html>
         <section>
             <h2>Firmware</h2>
             <div id="version" class="muted">Loading...</div>
-            <button id="check" onclick="checkUpdate()">Check for updates</button>
-            <button id="install" class="primary" hidden onclick="installLatest()"></button>
-            <label>Or upload firmware-ota.bin
-                <input id="file" type="file" accept=".bin">
-            </label>
-            <button onclick="upload()">Upload</button>
-            <progress id="progress" max="1" value="0" hidden></progress>
-            <div id="update-message" class="muted"></div>
             <label>Update repository (GitHub)
                 <input id="update_repository" placeholder="owner/name">
             </label>
+            <button id="check" onclick="checkUpdate()">Check for updates</button>
+            <button id="install" class="primary" hidden onclick="installLatest()"></button>
+            <div id="update-message" class="muted"></div>
+            <div class="subsection">
+                <h3>Manual update</h3>
+                <label>Firmware file (firmware-ota.bin)
+                    <input id="file" type="file" accept=".bin">
+                </label>
+                <button onclick="upload()">Upload</button>
+                <progress id="progress" max="1" value="0" hidden></progress>
+                <div id="upload-message" class="muted"></div>
+            </div>
         </section>
 
         <section>
@@ -339,11 +344,16 @@ content = r"""<!DOCTYPE html>
             return data.version;
         }
 
+        // The repository in the field, saved or not
+        function latestUrl() {
+            return '/api/update/latest?repository=' + $('update_repository').value.trim();
+        }
+
         async function checkUpdate() {
             $('check').disabled = true;
             $('update-message').innerText = 'Checking...';
             try {
-                const response = await fetch('/api/update/latest');
+                const response = await fetch(latestUrl());
                 const data = await response.json();
                 if (!response.ok)
                     throw new Error(data.message);
@@ -357,31 +367,31 @@ content = r"""<!DOCTYPE html>
         }
 
         // After an update: the device restarts into it, then confirms it once back on the network
-        async function waitForRestart() {
-            $('update-message').innerText = 'Restarting...';
+        async function waitForRestart(message) {
+            message.innerText = 'Restarting...';
             await new Promise(resolve => setTimeout(resolve, 5000));
             for (let attempt = 0; attempt < 60; attempt++) {
                 try {
                     await showVersion();
-                    $('update-message').innerText = '';
+                    message.innerText = '';
                     return;
                 } catch (e) {
                     await new Promise(resolve => setTimeout(resolve, 3000));
                 }
             }
-            $('update-message').innerText = 'The device did not come back: check it over USB';
+            message.innerText = 'The device did not come back: check it over USB';
         }
 
         async function installLatest() {
             $('install').disabled = true;
             $('update-message').innerText = 'Downloading and installing (about a minute)...';
             try {
-                const response = await fetch('/api/update/latest', { method: 'POST' });
+                const response = await fetch(latestUrl(), { method: 'POST' });
                 const data = await response.json();
                 if (!response.ok)
                     throw new Error(data.message);
                 $('install').hidden = true;
-                await waitForRestart();
+                await waitForRestart($('update-message'));
             } catch (e) {
                 $('update-message').innerText = 'Update failed: ' + e.message;
             }
@@ -391,7 +401,7 @@ content = r"""<!DOCTYPE html>
         function upload() {
             const file = $('file').files[0];
             if (!file) {
-                $('update-message').innerText = 'Choose firmware-ota.bin first';
+                $('upload-message').innerText = 'Choose firmware-ota.bin first';
                 return;
             }
             const request = new XMLHttpRequest(); // Unlike fetch, it reports the upload's progress
@@ -401,16 +411,16 @@ content = r"""<!DOCTYPE html>
                 $('progress').hidden = true;
                 const data = JSON.parse(request.responseText);
                 if (request.status !== 200)
-                    $('update-message').innerText = 'Update failed: ' + data.message;
+                    $('upload-message').innerText = 'Update failed: ' + data.message;
                 else
-                    await waitForRestart();
+                    await waitForRestart($('upload-message'));
             };
             request.onerror = () => {
                 $('progress').hidden = true;
-                $('update-message').innerText = 'Upload failed';
+                $('upload-message').innerText = 'Upload failed';
             };
             $('progress').hidden = false;
-            $('update-message').innerText = 'Uploading ' + file.name + '...';
+            $('upload-message').innerText = 'Uploading ' + file.name + '...';
             request.send(file);
         }
 

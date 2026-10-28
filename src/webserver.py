@@ -9,11 +9,12 @@ from config import Config
 
 
 class Request:
-    def __init__(self, reader, writer, headers, argument=None):
+    def __init__(self, reader, writer, headers, argument=None, query={}):
         self.reader = reader
         self.writer = writer
         self.headers = headers
         self.argument = argument  # The <input> of /api/active_input/<input>
+        self.query = query  # name -> value, not percent-decoded
 
 
 class WebServer:
@@ -72,6 +73,8 @@ class WebServer:
         except (ValueError, UnicodeError):
             self.error(writer, "400 Bad Request", "Bad Request")
             return
+        path, _, query = path.partition("?")
+        query = dict(parameter.partition("=")[::2] for parameter in query.split("&") if parameter)
         path = path.rstrip("/") or "/"
         argument = None
         if path.startswith("/api/active_input/"):
@@ -84,7 +87,7 @@ class WebServer:
             else:
                 self.error(writer, "404 Not Found", "404 Not Found")
         elif (method, path) not in self._protected or self.authorized(writer, headers):
-            await handler(Request(reader, writer, headers, argument))
+            await handler(Request(reader, writer, headers, argument, query))
 
     def write_response(self, writer, status_code, content, content_type="application/json", headers={}):
         content = content.encode()
@@ -192,17 +195,32 @@ class WebServer:
             await request.writer.drain()
         await self.install_update(request.writer, lambda: self.updater.install(request.reader.read, size))
 
+    def repository(self, request):
+        """The ?repository= of the request (the settings page's, maybe not saved yet), or the saved one; None after answering a bad one."""
+        repository = request.query.get("repository", Config.update_repository)
+        if not Config.is_repository(repository):
+            self.error(request.writer, "400 Bad Request", "Update repository: owner/name")
+            return None
+        return repository
+
     async def get_latest_release(self, request):
+        repository = self.repository(request)
+        if not repository:
+            return
         try:
-            latest = (await self.updater.latest_release(Config.update_repository))["version"]
+            latest = (await self.updater.latest_release(repository))["version"]
         except Exception as e:
             self.error(request.writer, "502 Bad Gateway", str(e))
         else:
             self.json_response(request.writer, "200 OK", {"version": self.updater.version, "latest": latest, "update_available": latest != self.updater.version})
 
     async def install_latest_release(self, request):
+        repository = self.repository(request)
+        if not repository:
+            return
+
         async def install():
-            return await self.updater.install_release(await self.updater.latest_release(Config.update_repository))
+            return await self.updater.install_release(await self.updater.latest_release(repository))
 
         await self.install_update(request.writer, install)
 
