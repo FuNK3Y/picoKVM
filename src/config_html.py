@@ -250,6 +250,7 @@ content = r"""<!DOCTYPE html>
             <h2>Admin password</h2>
             <label>New password <input id="admin_password" type="password" placeholder="Unchanged" autocomplete="new-password"></label>
             <label>Confirm <input id="admin_password_confirm" type="password" autocomplete="new-password"></label>
+            <button id="clear_password" hidden onclick="passwordCleared = !passwordCleared; showPassword()"></button>
         </section>
 
         <footer>
@@ -261,6 +262,7 @@ content = r"""<!DOCTYPE html>
     <script>
         const $ = id => document.getElementById(id);
         let monitors = []; // {type, data}: data keeps the settings the form does not show
+        let passwordSet = false, passwordCleared = false; // Cleared: to be removed by the next save
 
         function showBrightness() {
             $('brightness_value').innerText = Math.round($('brightness').value * 100) + '%';
@@ -446,6 +448,17 @@ content = r"""<!DOCTYPE html>
             $('update_repository').value = settings.update_repository;
             monitors = settings.devices;
             renderMonitors();
+            passwordSet = settings.admin_password_set;
+            showPassword();
+        }
+
+        function showPassword() {
+            $('clear_password').hidden = !passwordSet;
+            $('clear_password').innerText = passwordCleared ? 'Keep password' : 'Clear password';
+            $('admin_password').placeholder = passwordCleared ? 'Cleared' : 'Unchanged';
+            $('admin_password').disabled = $('admin_password_confirm').disabled = passwordCleared;
+            if (passwordCleared)
+                $('admin_password').value = $('admin_password_confirm').value = '';
         }
 
         async function save() {
@@ -462,7 +475,7 @@ content = r"""<!DOCTYPE html>
                 },
                 led_idle_brightness: parseFloat($('brightness').value),
                 update_repository: $('update_repository').value,
-                admin_password: $('admin_password').value,
+                admin_password: passwordCleared ? null : $('admin_password').value,
                 devices: monitors,
             };
             $('save').disabled = true;
@@ -477,7 +490,10 @@ content = r"""<!DOCTYPE html>
                     return;
                 }
                 if (response.ok) {
+                    passwordSet = !passwordCleared && (passwordSet || !!$('admin_password').value);
+                    passwordCleared = false;
                     $('wifi_password').value = $('admin_password').value = $('admin_password_confirm').value = '';
+                    showPassword();
                     renderMonitors(); // The input names in the monitors' labels
                 }
             } catch (e) {

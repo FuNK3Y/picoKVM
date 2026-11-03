@@ -54,15 +54,15 @@ class Config:
 
     @staticmethod
     def public():
-        """The settings, as the configuration page edits them: without the passwords."""
+        """The settings, as the configuration page edits them: without the passwords, but telling whether admin_password is set."""
         settings = json.loads(Config._serialize())
         settings["wireless_network"].pop("password", None)
-        settings.pop("admin_password")
+        settings["admin_password_set"] = bool(settings.pop("admin_password"))
         return settings
 
     @staticmethod
     def apply(settings):
-        """Checks settings (as public() gives them; a password only when it changes), then applies and saves them.
+        """Checks settings (as public() gives them; a password only when it changes, an admin_password of None removes it), then applies and saves them.
 
         Raises ValueError, before changing anything, on an invalid setting. Returns whether the device has to restart
         for them to apply: Wi-Fi settings only take effect at start-up.
@@ -102,7 +102,8 @@ class Config:
         Config.wireless_network = wireless_network
         Config.inputs = {input: {"name": inputs[input]["name"], "color": inputs[input]["color"]} for input in ("A", "B")}
         Config.led_idle_brightness = brightness
-        Config.admin_password = settings.get("admin_password") or Config.admin_password
+        admin_password = settings.get("admin_password", "")
+        Config.admin_password = None if admin_password is None else admin_password or Config.admin_password
         Config.update_repository = repository
         Config.devices = devices
         Config.save()
