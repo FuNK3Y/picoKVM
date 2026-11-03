@@ -80,6 +80,9 @@ class ApplyTest(TestCase):
         public = Config.public()
         self.assertEqual(public["wireless_network"], {"SSID": "home", "hostname": "picokvm"})
         self.assertNotIn("admin_password", public)
+        self.assertIs(public["admin_password_set"], True)
+        Config.admin_password = None
+        self.assertIs(Config.public()["admin_password_set"], False)
 
     def test_applies_without_restart(self):
         self.assertFalse(Config.apply(settings()))
@@ -101,6 +104,19 @@ class ApplyTest(TestCase):
         self.assertEqual(Config.admin_password, "new")
         Config.apply(settings(admin_password=""))  # Empty: unchanged
         self.assertEqual(Config.admin_password, "new")
+        Config.apply(settings())  # Absent: unchanged
+        self.assertEqual(Config.admin_password, "new")
+
+    def test_a_password_spelled_none_is_a_password(self):
+        for password in ("None", "null"):
+            Config.apply(settings(admin_password=password))
+            self.assertEqual(Config.admin_password, password)
+
+    def test_removes_the_admin_password(self):
+        Config.apply(settings(admin_password=None))
+        self.assertIsNone(Config.admin_password)
+        with open(Config._configFile) as file:
+            self.assertIsNone(json.load(file)["admin_password"])
 
     def test_refuses_invalid_settings_without_changing_anything(self):
         before = Config._serialize()

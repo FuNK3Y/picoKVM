@@ -54,6 +54,8 @@ Once set, the admin password protects everything the settings page does: opening
 
 **Until it is set, all of that is open to anyone on the network.**
 
+To remove it, use *Clear password*, then *Save*, on the settings page, or send `"admin_password": null` to `/api/config`; everything above is then open again.
+
 It travels over plain HTTP, so anyone able to watch the network traffic can read it.
 
 ### Monitors
@@ -77,7 +79,7 @@ curl -X POST http://picokvm.local/api/active_input/A   # or B; without the input
 curl http://picokvm.local/api/active_input             # the state: active input, switching, last error
 curl http://picokvm.local/api/events                   # the state as server-sent events, on every change
 ```
-`/api/config` reads (`GET`) and writes (`POST`) the configuration, without the passwords ([admin password](#admin-password) required). `/metrics` gives Wi-Fi signal, memory, USB power and version for Prometheus.
+`/api/config` reads (`GET`) and writes (`POST`) the configuration, without the passwords, only `admin_password_set` tells whether one is set ([admin password](#admin-password) required). `/metrics` gives Wi-Fi signal, memory, USB power and version for Prometheus.
 
 `picokvm` is the default hostname; it can be changed in the settings.
 
