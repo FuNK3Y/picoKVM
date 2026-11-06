@@ -108,7 +108,7 @@ substitutions:
   monitors: 2
 ```
 
-Each monitor's input values are then set from Home Assistant. [esphome/example.yaml](esphome/example.yaml) is a complete starting point; it builds, but has not been run on a board yet.
+Each monitor's input values and the LED colors and brightness are then set from Home Assistant. [esphome/example.yaml](esphome/example.yaml) is a complete starting point; it builds, but has not been run on a board yet.
 
 ## Development
 [`firmware/build.sh`](firmware/build.sh) builds MicroPython with `src/` frozen in, into `firmware/build/` (needs [ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32s3/get-started/) v5.5.2):

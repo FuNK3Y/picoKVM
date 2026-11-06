@@ -23,7 +23,7 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
-# Each monitor's input values are set at runtime: Home Assistant > device > Configuration.
+# Each monitor's input values and the LED colors and brightness are set at runtime: Home Assistant > device > Configuration.
 
 # Anything else the board should do goes here, e.g. hook onto the core select:
 # select:
