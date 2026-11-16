@@ -52,6 +52,32 @@ def main():
               indent=1, sort_keys=True)
     print(f"jlcref: {sum(c in mapping for c in codes)}/{len(codes)} parts mapped")
 
+    # JLC's pin names per pad number, from its symbol: make_fab.py checks them
+    # against ours, because matching footprints by pad number is blind to a
+    # library that numbers the pins differently (the red/yellow 0603 LEDs
+    # C2286/C2287 call the anode pin 1, KiCad's LED the cathode)
+    ppath = os.path.join(REF, "lcsc_pins.json")
+    pins = json.load(open(ppath)) if os.path.exists(ppath) else {}
+    for code in codes:
+        if code in pins:
+            continue
+        for wait in (2, 10, 30, 60):
+            time.sleep(wait)
+            with tempfile.TemporaryDirectory() as tmp:
+                subprocess.run(["easyeda2kicad", "--symbol", "--lcsc_id", code,
+                                "--output", os.path.join(tmp, "s")], capture_output=True, cwd=tmp)
+                sym = os.path.join(tmp, "s.kicad_sym")
+                text = open(sym).read() if os.path.exists(sym) else ""
+            if text:
+                break
+        found = re.findall(r'\(name "([^"]*)".*?\(number "([^"]*)"', text, re.S)
+        if not found:
+            print(f"  {code}: no symbol found")
+            continue
+        pins[code] = {num: name for name, num in found}
+    json.dump(pins, open(ppath, "w"), indent=1, sort_keys=True)
+    print(f"jlcref: pin names for {sum(c in pins for c in codes)}/{len(codes)} parts")
+
 
 if __name__ == "__main__":
     main()

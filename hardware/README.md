@@ -36,11 +36,121 @@ mkdir -p out && cp revA/kvm_board.kicad_* out/
 ./build.sh fab        # panel (hw/panel.py), Gerbers, PTH/NPTH drill, BOM, CPL -> out/jlcpcb/
 ```
 
+## Rev B (order files ready, branch `rev-b`)
+
+![picoKVM rev B](revB/img/iso.png)
+
+`revB/` holds the board as it is to be sent to JLCPCB.  As for rev A,
+**`revB/kvm_board.kicad_pcb` is the design of record**: `./build.sh` routed
+it to 6 open connections, and the last ones were closed by hand on the routed
+board (local rip-up and re-lay of a few control lines around the hub's
+north-east pins and the RP2350's QSPI bus, gap joins on the VBUS trunks, port
+3's VBUS widened in place, three dangling vias removed).  A fresh build gives
+an equivalent placement, not this copper.
+
+| file | what |
+|---|---|
+| `revB/kvm_board.kicad_pcb` / `.kicad_pro` / `.kicad_dru` | routed board (KiCad 10): DRC 0 errors, 0 unconnected, `checks.py` passed |
+| `revB/jlcpcb/gerbers.zip`, `bom.csv`, `cpl.csv` | order files (112 × 102 mm customer panel, rails left and right), JLC DFM checked 2026-11-16 |
+| `revB/schematic_review.html` | readable schematic |
+| `revB/mechanical.txt` | connector, LED and button positions for the enclosure |
+| `revB/impedance.txt` | field-solver results for the 90 Ω pairs |
+| `revB/img/` | renders (top, bottom, iso) |
+
+JLC DFM on these files (2026-11-16): the red items are understood and
+accepted: pad-to-track 0.073–0.10 mm at 0402 pad corners (JLC reads KiCad's
+rounded pads as sharp rectangles; KiCad DRC checks the real shape at 0.1 mm),
+0.075 mm via annular rings (JLC minimum 0.05 mm), THT-to-SMD spacing at the
+HDMI stacks, thermal vias under the RP2350, edge connectors at the edge, and
+lead-edge flags on fine-pitch parts ("pin without pad" and "missing hole" are
+0).  Check the J1/U11 and J8/J11 3D-model collision warnings in JLC's viewer
+before ordering.  Order settings as rev A (4 layers, JLC04161H-3313, top-side
+Standard PCBA, edge rails added by customer).
+
+Port supply path (DC resistance of the routed copper, 1 oz outer, from
+`revB/kvm_board.kicad_pcb`): USB A J1 → U4 34 mΩ, U32 → port switches
+40–64 mΩ, switches → connectors 8–66 mΩ (port 3 66 mΩ); with all four ports
+at 1 A, VBUS_HUB drops 111–152 mV.  Rev B's first routing measured ~0.5 Ω
+PC-to-port before the 1 mm trunks (`hw/route_nets.py` POWER_TRUNKS).
+
+Hub decoupling: the TUSB8041's +1V1 pins drop through vias onto a B.Cu ring
+under the package; C71 sits in the hub's south-west corner (U43 moved down
+its USB 2.0 line to make room), 3–8 mm from the west-side pins 5/8/13/21.  A
+north-west corner capacitor was tried and dropped: it left the hub's
+east-side control lines unroutable.
+
+Rev B adds a TUSB8041 hub with four downstream ports (two stacked USB 3.0
+Type-A, J3 and J10), an RP2350 that can intercept the keyboard on port 4,
+**four HDMI DDC/CI ports on two stacked connectors** (J5, J6: Foxconn
+QJ11191-DFB2-4H) and a TCA9548A I2C multiplexer for the four DDC buses, the
+hub's SMBus and a second Grove port.
+Pinout changes are under "Rev B: differences from rev A" below.  Several rev A
+sections further down no longer describe this board:
+
+| rev A statement below | rev B |
+|---|---|
+| Board 112 × 75 mm | **98 × 102 mm**, same 4-layer JLC04161H-3313 stackup, top-side assembly |
+| Two single HDMI receptacles | Two stacked HDMI receptacles: J5 lower = HDMI 1, upper = HDMI 3; J6 lower = HDMI 2, upper = HDMI 4 (each port with its own 100 mA PTC, USBLC6 and 2k pull-ups; one LM66100 per connector feeds both its ports) |
+| No AC-coupling caps on the SuperSpeed lines | The hub's downstream and upstream TX pairs are AC-coupled on the board (C60–C69); the PC-side mux path is unchanged |
+| All SuperSpeed pairs on F.Cu | Ports 1/3 RX pairs run partly on B.Cu (referenced to In2 +3V3) |
+| ESP32 footprint is the only exposed pad with vias | U30 (hub) and U45 (RP2350) use KiCad's ThermalVias footprints |
+| U5 AP2112K LDO, one peripheral port behind U20 | 3.3 V and 1.1 V from two TLV62569 bucks (U5, U31); one TPS2553 per port (U33–U36) behind U32 |
+| Prototype test plan (rev A) | see the rev B envelope below |
+
+How the rev B board is laid out and routed, in addition to "How the board is
+routed": capacitors and resistors that belong at a pin are tagged in the
+schematic (`at=(ref, pin)` in `hw/kvm_board.py`) and placed there by
+`make_pcb.py`; `layout.py` keeps routing corridors free of passives (pairs,
+the hub's east-side lines, the RP2350's USB escape); `hw/route_nets.py`
+pre-routes the nets Freerouting kept leaving open (regulator switch nodes and
+feedback, both crystals, the hub's port-control lines, QSPI, the RP2350's USB)
+and ties the +1V1 vias into one tree.  The CPL check in `make_fab.py` compares
+JLC's pin names with ours (`hw/lib/jlcref/lcsc_pins.json`) and turns D5
+(C2286, whose JLC symbol numbers the anode as pin 1) by 180°.
+
+### Rev B prototype power envelope
+
+The four ports can ask for more current than the board's shared supply path
+can give: four TPS2553 limits (1.2–1.38 A each) behind one TPS2116 (2.5 A
+class), fed by one PC port (0.9 A for USB 3) or the AUX input, and U32 falls
+back from AUX to the selected PC the moment AUX goes away.  There is no
+aggregate current limit.  Until that is designed in, rev B prototypes are run
+inside this envelope:
+
+- **Downstream load, all four ports together: ≤ 0.5 A** (keyboard, mouse and
+  low-current devices), whether or not AUX is plugged in, since unplugging
+  AUX moves the whole load onto the selected PC.  Measure the board's own
+  current on the first prototype and lower the 0.5 A by whatever it exceeds
+  0.35 A.
+- **No bus-powered drives, chargers or four-port full-load tests, not even
+  from a strong bench supply on AUX:** the load still goes through U32 (2.5 A
+  class) and the board's shared copper, and falls back onto the selected PC
+  when AUX is unplugged.  A higher-current experiment needs its own test plan
+  (current-limited source, no PC attached).  Start with no downstream load
+  until the board's own current has been measured in its operating states
+  (idle, all HDMI monitors attached, Grove modules, ESP32 Wi-Fi active).
+- **Grove I2C (J11):** only modules powered from the board's own J11 5 V.  An
+  independently powered module with pull-ups to its own 5 V leaks ~0.2 mA per
+  line into +3V3, or ~0.5 mA into an unpowered board.
+- **HDMI +5 V (pin 18):** measure it with each monitor; it can fall below the
+  4.8 V minimum from a weak PC port, as on rev A.  Four monitors can draw up
+  to 4 × 55 mA = 0.22 A from +5V_SYS: count it in the board's own current.
+- **Port power-off is not a power cycle:** the TPS2553s have no output
+  discharge, so a port's 44 µF can hold VBUS well past 200 ms with a light
+  load.  Firmware treats a hub reset / port disable as a data disconnect only.
+- **Bring-up checks beyond rev A's:** hub enumeration from cold several times
+  (crystal start-up); USB 3 and USB 2 throughput on every port; VBUS at each
+  port at 0.5 A; scope +5V_SYS and VBUS_HUB when plugging the PCs and AUX one
+  after another (inrush: ~30 µF on +5V_SYS and 210 µF on VBUS_HUB with no
+  current limit), on a protected source.
+
 ## Build
 
 ```
 ./build.sh          # netlist + ERC, PCB, routing, DRC, renders, JLCPCB files (all in Docker)
 ./build.sh noroute  # same, stopping at the placed, unrouted board
+./build.sh reroute  # route the board in out/ as placed (placement runs may reorder footprints, which changes routing)
+./build.sh autoroute  # one more Freerouting pass on the board in out/
 ./build.sh parts    # re-import the LCSC symbols/footprints/3D models
 ./build.sh shell    # shell inside the toolchain (KiCad 10 + SKiDL + easyeda2kicad)
 ```
@@ -54,6 +164,11 @@ Sources:
 | `hw/route_ss.py` | hand-designed USB 3.0 SuperSpeed pairs (coupled, matched, no vias) |
 | `hw/route_usb2.py` | hand-designed USB 2.0 pairs (coupled, matched, symmetric via pairs) |
 | `hw/finish.py` | power neck-downs + plane fanout before routing; GND stitching after |
+| `hw/layout.py` | rev B placement: anchors, hand-placed passives, passive-free corridors, board size |
+| `hw/placement_freeze.py` | frozen passive spots from an earlier placement, so routing-relevant positions stay put |
+| `hw/pairs.py`, `hw/route_pairs.py` | rev B pair router and the hub's SuperSpeed / USB 2.0 pairs |
+| `hw/route_nets.py` | grid pre-router for nets Freerouting left open, the 1 mm VBUS trunks and the +1V1 tree |
+| `hw/plot.py` | 2-D plan of a board window (`out/img/plan.svg`) for layout work |
 | `hw/route.py` | Freerouting round-trip (Specctra DSN/SES) for everything else |
 | `hw/impedance.py` | 2-D field solver for the 90 Ω pairs on the JLC 3313 stackup |
 | `hw/make_fab.py` | JLCPCB `bom.csv` / `cpl.csv` (CPL expressed in JLC's own footprint frame) |
@@ -97,12 +212,12 @@ our pads via the CPL) reports no pin-edge finding for D3.
 
 ### Toolchain
 
-All versions are pinned (Dockerfile / `build.sh`): KiCad 10.0.6
-(`kicad/kicad:10.0.6-full`), SKiDL 2.3.0, easyeda2kicad 1.0.1,
-Freerouting 2.4.1 on `eclipse-temurin:25.0.4.1_1-jre`.
+All versions are pinned (Dockerfile / `build.sh`): KiCad 10.0.8
+(`kicad/kicad:10.0.8-full`), SKiDL 3.0.0, easyeda2kicad 1.0.1,
+Freerouting 2.5.0 on `eclipse-temurin:25.0.5_8-jre`.
 
 KiCad's Python bindings occasionally segfault in standalone scripts — on
-both 9.0.9 and 10.0.6, mostly around zone filling.  Every script saves only
+both 9.0.9 and 10.0.x, mostly around zone filling.  Every script saves only
 when its work is done and leaves via `os._exit(0)`, and `build.sh` retries
 a crashed step (you'll see "crashed, retrying" in the log).  Routing results
 vary slightly from run to run because Freerouting is not deterministic.
@@ -125,7 +240,7 @@ vary slightly from run to run because Freerouting is not deterministic.
 3. **Pre-route** (`finish.py fanout`): every GND / +3V3 SMD pad gets a stub +
    via into its plane (In1 = GND, In2 = +3V3); fine-pitch power pins get
    neck-down stubs.  Locked.
-4. **Everything else** (`route.py` + Freerouting 2.4.1 on Java 25):
+4. **Everything else** (`route.py` + Freerouting 2.5.0 on Java 25):
    power, I²C, GPIO, aux USB-C (Full Speed only) on F.Cu/B.Cu.
 5. **Stitching** (`finish.py stitch`): GND vias on a 4 mm grid tie the F/B
    pours to In1.
@@ -155,7 +270,7 @@ vary slightly from run to run because Freerouting is not deterministic.
   2.5 mm past the module's sides.  Freerouting and the fanout/stitching steps
   respect it.
 
-## Design decisions
+## Design decisions (rev A)
 
 - **No AC-coupling caps on the SuperSpeed lines.**  The PC and the device
   already AC-couple their transmitters, and the HD3SS3212 must be DC-biased
@@ -173,7 +288,8 @@ vary slightly from run to run because Freerouting is not deterministic.
   flow-through right after J1 and J2 and on the switch's common side, instead
   of USBLC6s off to the side: no stubs, 0.5 mm pitch.
 - **HDMI +5V** (pin 18; HDMI asks 4.8–5.3 V): LM66100 ideal diode (~5 mV
-  drop, blocks back-feed from the monitor) + 100 mA PTC.  Expect ~4.9 V from
+  drop, blocks back-feed from the monitor; one per stacked connector, shared
+  by its two ports) + 100 mA PTC per port.  Expect ~4.9 V from
   a 5.0 V PC port, ~4.5 V in the worst case (4.75 V port and a heavily
   loaded cable) — check on the prototype.
 - **No added vias inside exposed pads**: the HD3SS3212's thermal pad joins
@@ -188,7 +304,7 @@ vary slightly from run to run because Freerouting is not deterministic.
   get wrong.  The board itself is powered by whichever of USB A / USB B / AUX
   is present.
 
-## Decoupling (per TI datasheets)
+## Decoupling (rev A, per TI datasheets)
 
 - U4 TPS2116: 1 µF on each VIN at the IC (C4 VBUS_A, C5 VBUS_B; datasheet
   9.2 / 10.1); C6 100 nF on VOUT (≥ 0.1 µF for soft start, 7.3.2), which is
@@ -227,6 +343,44 @@ is not a design limit, so rev A is validated inside this envelope:
 - **HDMI +5 V:** voltage at J5/J6 pin 18 with each monitor (spec 4.8–5.3 V).
 - **USB 3 / USB 2:** throughput with a real SuperSpeed device and a
   High-Speed device on each PC; DDC/CI with each monitor.
+
+## Rev B: differences from rev A
+
+Rev B is not pin-compatible with rev A; firmware tells the boards apart with
+`BOARD_REV` (GPIO15: low = rev B, open on rev A).  `hw/kvm_board.py` is the
+source of truth for rev B; the table under "Firmware contract" is rev A's.
+
+| ESP32 GPIO | rev A | rev B |
+|---|---|---|
+| 1 / 2 | HDMI 1 DDC SDA / SCL | I2C SDA / SCL to the multiplexer U13 (TCA9548A, 0x70) |
+| 4 | HDMI 2 DDC SDA | `I2C_MUX_RESET_N` (low = all channels off; 10k pull-up) |
+| 5 | HDMI 2 DDC SCL | free |
+| 6 / 7 | spare | AUX CC sense (ADC) / AUX VBUS sense |
+| 10 | `PERIPH_EN` | `HUB_RESET_N` (same meaning: high = ports on) |
+| 16 | `PERIPH_FAULT_N` | pulled up, no function (the hub handles over-current per port) |
+| 18, 35-37, 48 | header J9 | RP2350 flash programming (SD1, SS, SCLK, SD0) and `RP_RUN` |
+| 21 | header J9 | `KBD_INTERCEPT` |
+| 38 / 39 | header J9 | free |
+| 40 | header J9 | `HUB_CFG` (high = hub waits for SMBus configuration) |
+| 41 / 42 / 47 | header J9 | `RP_LINK_ATTN` / `RP_LINK_TX` / `RP_LINK_RX` |
+
+- **I2C:** every bus hangs off U13.  Write the channel mask to 0x70, then
+  talk to the device: channel 0 HDMI 1 (monitor at 0x37), 1 HDMI 2 (0x37),
+  2 hub SMBus (0x44), 3 Grove I2C port J11, 4 HDMI 3 (0x37), 5 HDMI 4 (0x37).
+  HDMI 1/3 are the lower/upper port of J5, HDMI 2/4 of J6.  Select channel 2 only while
+  `HUB_CFG` is high.  A bus held low is cleared by pulsing GPIO4 low.
+- **No DDC level shifters:** rev A's two PCA9306 are gone.  U13 runs from
+  3.3 V, so it passes at most 2.8 V to the ESP32 side while the HDMI side
+  keeps its 2k pull-ups to 5 V (TCA9548A datasheet, "voltage translation").
+- **RP2350 link:** RP GPIO20 -> ESP GPIO42 (`RP_LINK_TX`, UART1 TX), RP GPIO21
+  <- ESP GPIO47 (`RP_LINK_RX`, UART1 RX), RP GPIO26 - ESP GPIO41
+  (`RP_LINK_ATTN`); 220R in series, 10k pull-ups.  RP GPIO22 sits on the
+  PC-switch button line (GPIO13).  With stock hid-remapper all four are
+  plain open-drain hotkey outputs.
+- **Grove:** J8 (left edge) is unchanged: button + LED.  J11 (left edge, right below J8) is
+  new: I2C, M5Stack port A pinout (GND, 5 V via its own 100 mA PTC, SDA
+  yellow, SCL white), 4.7k pull-ups to 3.3 V on the board.
+- **Removed:** GPIO header J9 and UART header J7 (UART0 is on two test pads).
 
 ## Firmware contract
 
@@ -289,7 +443,7 @@ Implemented by the firmware in `src/` (`src/board.py` holds these pins).
 
 ### Mechanical (for the enclosure)
 
-- Board 112 × 75 mm, plain rectangle; the edge connectors protrude past it by
+- Board 112 × 75 mm (rev A; rev B is 98 × 102 mm), plain rectangle; the edge connectors protrude past it by
   up to 1.5 mm (see `out/mechanical.txt`).  The ESP32
   antenna is at the right edge, y 31–49: keep metal, screws and conductive
   filament ≥ 5 mm away from it; plain PLA/PETG walls are fine.

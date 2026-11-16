@@ -1,13 +1,13 @@
 """
-Deliberate routing of the six USB 3.0 SuperSpeed pairs (run before the
-autorouter; the tracks are locked so Freerouting keeps them).
+Deliberate routing of the four PC-side USB 3.0 SuperSpeed pairs (run before
+the autorouter; the tracks are locked so Freerouting keeps them).  Rev A's
+geometry, unchanged; everything behind the muxes is route_pairs.py's.
 
 Each pair is a hand-designed centreline (45-degree corners) turned into two
 coupled tracks at USB_DIFF width/gap, with symmetric fan-ins to the pads.
 Corners come in opposite pairs, so intra-pair skew cancels.  Path:
 
     J1/J2 (Type-B) -> U17/U18 (ESD, flow-through) -> U2 (HD3SS3212)
-    U2 -> U19 (ESD, flow-through) -> J3 (Type-A)
 
 The USB B group is the mirror image of the USB A group about U2's centre.
 Everything is on F.Cu over the In1 GND plane, no vias.
@@ -24,7 +24,9 @@ PCB = "out/kvm_board.kicad_pcb"
 W, GAP = 0.15, 0.15          # USB_DIFF net class
 PITCH = W + GAP
 mm = pcbnew.FromMM
-DX = 3.0                     # USB block shift vs the original layout (make_pcb ANCHORS)
+from layout import PC_X
+
+DX = PC_X - 14.0             # the coordinates below were drawn with USB A at x = 14
 MIRROR_X = 23.0 + DX         # U2 centre
 
 # Centrelines (mm).  Pads are entered/left heading down (+y); P is on the
@@ -39,20 +41,13 @@ PCA = {
     ("U17", "U2", "PCA_SSTX"): [(14.75, 25.3), (16.75, 27.3), (19.05, 27.3),
                                 (22.5, 30.75), (22.5, 31.9)],
 }
-PER = {
-    ("U2", "U19", "PER_SSTX"): [(22.0, 35.9), (22.0, 44.0), (22.25, 44.25), (22.25, 53.0)],
-    ("U2", "U19", "PER_SSRX"): [(24.0, 35.9), (24.0, 44.0), (23.75, 44.25), (23.75, 53.0)],
-    ("U19", "J3", "PER_SSTX"): [(22.25, 55.0), (20.0, 57.25), (20.0, 58.4)],
-    ("U19", "J3", "PER_SSRX"): [(23.75, 55.0), (26.0, 57.25), (26.0, 58.4)],
-}
 # apply the block shift
 PCA = {k: [(x + DX, y) for x, y in v] for k, v in PCA.items()}
-PER = {k: [(x + DX, y) for x, y in v] for k, v in PER.items()}
 
 MIRROR = {"J1": "J2", "U17": "U18", "U2": "U2", "PCA_SSRX": "PCB_SSTX",
           "PCA_SSTX": "PCB_SSRX"}
 # flow-through ESD parts: P/N pass from the top pad to the bottom pad
-ESD = ("U17", "U18", "U19")
+ESD = ("U17", "U18")
 
 
 def mirrored(routes):
@@ -122,7 +117,7 @@ def length(pts):
 
 def main():
     board = pcbnew.LoadBoard(PCB)
-    routes = {**PCA, **mirrored(PCA), **PER}
+    routes = {**PCA, **mirrored(PCA)}
     total = {}
     for (src, dst, pair), centre in routes.items():
         for sfx, d in (("_P", PITCH / 2), ("_N", -PITCH / 2)):

@@ -15,22 +15,21 @@ import shutil
 import sys
 
 import pcbnew
+try:
+    from placement_freeze import FREEZE, FREEZE_H, FREEZE_SPLIT
+except ImportError:
+    FREEZE, FREEZE_H, FREEZE_SPLIT = {}, 0.0, 1e9
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, "..", "out"))
 STOCK_FP = "/usr/share/kicad/footprints"
 LOCAL_LIBS = {"lcsc": os.path.join(HERE, "lib", "lcsc.pretty")}
 
-W, H = 112.0, 75.0          # board outline (mm)
-
-# ESP32-S3-WROOM-1 (25.5 x 18 mm): the PCB antenna is the last ~6 mm of the
-# module.  It sits flush with the right edge (no overhang).  Copper keep-out
-# on every layer per Espressif / the KiCad footprint's own rule area: from
-# the start of the antenna (6.75 mm from the module centre) to the edge, and
-# 15 mm past the module on both sides (48 mm along the edge).
-ESP_X = W - 12.75 - 0.2      # module centre: antenna end 0.2 mm inside the edge
-ESP_Y = 40.0
-ANTENNA_KEEPOUT = (ESP_X + 6.75, ESP_Y - 24.0, W, ESP_Y + 24.0)
+from layout import (W, H, REV, ESP_X, ESP_Y, ANTENNA_KEEPOUT, EDGE_PARTS, PROTRUDE,
+                    EDGE_PAD_CLEAR, LED_X, ANCHORS, NET_HOME, LABELS, BUTTONS, ORIENT,
+                    STACK_PARTS, STACK_ESD_DY, STACK_CAP_DY, STACK_ESD_DX,
+                    HUB_DECOUPLING, RP_DECOUPLING, V1_OUTLINE, FIXED_PASSIVES, FIXED_BY_NET, CORRIDORS,
+                    AT_FIRST)
 
 mm = pcbnew.FromMM
 
@@ -39,109 +38,10 @@ def pt(x, y):
     return pcbnew.VECTOR2I(mm(x), mm(y))
 
 
-# ref -> (x, y, rotation_deg).  Connectors open toward local +Y, so the rear
-# edge (y=0) ones are rotated 180 and placed with their opening flush.
-# Edge connectors: (edge, position along the edge in mm).  Each opens
-# outward and sticks out by up to PROTRUDE (2 mm case wall - 0.5 mm), but
-# never so far that a pad comes closer than EDGE_PAD_CLEAR to the edge.
-# Signal flow: PCs at the rear, desk side (monitors, peripherals) at the
-# front, aux/flash with the PC ports, Grove centred on the left side.
-EDGE_PARTS = {
-    "J1": ("rear", 17.0),     # USB A  USB 3.0 B  (route_ss.py tied to x)
-    "J2": ("rear", 35.0),     # USB B  USB 3.0 B  (route_ss.py tied to x)
-    "J3": ("front", 26.0),    # peripherals USB 3.0 A  (route_ss.py tied to x)
-    # 26 mm HDMI pitch and 23 mm to the USB-A: room for thick overmoulded
-    # plugs (up to ~25 mm wide) side by side
-    "J5": ("front", 49.0),    # HDMI 1
-    "J6": ("front", 75.0),    # HDMI 2
-    "J4": ("rear", 95.0),     # aux / flash USB-C, behind the ESP32's USB pins
-    "J8": ("left", H / 2),    # Grove button port, centred
-}
-PROTRUDE = 1.5
-EDGE_PAD_CLEAR = 0.3
-
-LED_X = 95.0                       # side-emitting RGB status LED, front edge
-
-ANCHORS = {
-    # USB data path: B receptacles -> ESD -> muxes -> ESD -> A receptacle
-    # (route_ss.py's coordinates are tied to these: shift both together)
-    "U17": (17.0, 24.0, 0),     # TPD4E05U06 USB A
-    "U18": (35.0, 24.0, 0),     # TPD4E05U06 USB B
-    "U2": (26.0, 34.0, 0),      # HD3SS3212
-    "U19": (26.0, 54.0, 0),     # TPD4E05U06 peripheral
-    # USB 2.0 (route_usb2.py's coordinates are tied to these): TS3USB221A
-    # between the two Type-B connectors, ESD right next to each launch
-    "U3": (26.0, 21.0, -90),    # TS3USB221A: ports west, common east
-    "U11": (24.75, 18.4, 180),  # TPD4E05U06 USB A (channel 2), below J1's housing
-    "U12": (43.6, 13.37, -90),  # TPD4E05U06 USB B, just past J2's housing
-    "U13": (28.3, 21.75, -90),  # TPD4E05U06 peripheral, on U3's common pins
-    "C3": (27.6, 18.9, 0),      # U3's decoupling, beside its VCC pin (the
-                                # USB 2 corridors leave no automatic spot)
-    # power
-    # TPS2116 peripheral VBUS mux, turned 180 degrees: VIN2 (VBUS_A) faces
-    # west towards J1 and VIN1 (VBUS_B) east, so the two supplies arrive
-    # without crossing (route_usb2.py pre-routes both on B.Cu)
-    "U4": (40.0, 45.0, 180),
-    # U4's 1 uF input capacitors (TPS2116 datasheet 9.2 / 10.1: close to the
-    # VIN pins), beside the VIN2 / VIN1 vias; route_usb2.py joins them
-    "C4": (37.0, 44.75, 180),   # VBUS_A, west of U4
-    "C5": (41.9, 42.6, 90),     # VBUS_B, north of U4's VIN1 via
-    "U20": (44.5, 44.75, 0),
-    # TPS2553 input capacitor (datasheet: 0.1 uF "as close to the IC as
-    # possible"), beside U20's IN via; route_usb2.py joins it
-    "C6": (48.2, 46.4, 0),
-    # LM66100 U6 / U7 local decoupling: 1 uF on each VIN, 10 uF on VOUT
-    "C23": (51.0, 38.6, 90),
-    "C24": (56.5, 38.6, 90),
-    "C25": (56.5, 42.3, 180),    # TPS2553 peripheral power switch, next to U4 VOUT
-    "U6": (54.0, 40.0, 0),      # LM66100 A
-    "U7": (59.0, 40.0, 0),      # LM66100 B
-    "U5": (72.0, 46.0, 0),      # AP2112K
-    # aux USB-C (rear edge): ESD + its ideal diode next to it
-    "U14": (95.0, 13.5, 0),     # USBLC6 aux
-    "U8": (86.5, 12.0, 0),      # LM66100 AUX
-    # HDMI DDC, just inside the front HDMI ports
-    # (each group sits at the same offset from its connector)
-    "U15": (46.5, 61.0, 0),     # USBLC6 HDMI1
-    "U9": (52.5, 60.0, 0),      # PCA9306 HDMI1
-    "U21": (42.6, 60.0, 90),    # LM66100 HDMI1 5V
-    "F2": (42.6, 55.3, 90),
-    "U16": (72.5, 61.0, 0),     # USBLC6 HDMI2
-    "U10": (78.5, 60.0, 0),     # PCA9306 HDMI2
-    "U22": (68.6, 60.0, 90),    # LM66100 HDMI2 5V
-    "F3": (68.6, 55.3, 90),
-    # MCU: antenna (local -Y) points to +X, flush with the right edge
-    "U1": (ESP_X, ESP_Y, -90),
-    # bench / debug area in the free rear space: GPIO + UART headers and
-    # the three buttons (the Grove port is the user's PC-switch button)
-    "J9": (52.0, 14.0, 90),     # 2x8 spare GPIO header
-    "J7": (74.0, 13.0, 90),     # UART header
-    "SW1": (52.0, 22.0, 0),     # RESET
-    "SW2": (60.0, 22.0, 0),     # BOOT
-    "SW3": (68.0, 22.0, 0),     # PC switch (bench)
-    # front edge (desk side): side-emitting RGB LED, lens (local +Y, 1.36 mm
-    # from the origin) facing the edge, 0.2 mm inside it
-    "D3": (LED_X, H - 0.2 - 1.36, 0),
-    # screws: the four corners only
-    "H1": (4.0, H - 4.0, 0),
-    "H2": (W - 4.0, H - 4.0, 0),
-    "H3": (4.0, 4.0, 0),
-    "H4": (W - 4.0, 4.0, 0),
-}
-
-POWER_NETS = {"GND", "+3V3", "+5V_SYS"}
-# nets whose passives must sit at a given part (overrides net affinity)
-NET_HOME = {"GROVE_BTN": "J8", "GROVE_LED": "J8", "GROVE_5V": "J8",
-            "AUX_CC1": "J4", "AUX_CC2": "J4", "VBUS_AUX": "U8"}
+POWER_NETS = {"GND", "+3V3", "+1V1", "+5V_SYS"}
 SCREW_KEEPOUT = 4.0   # mm radius around mounting holes (M3 washer is 7 mm)
+SCREW_HEAD = 3.2      # connector bodies may come this close (M3 pan head: 5.5 mm)
 THT_SMD_GAP = 2.1     # mm, SMD passives to plated through-hole pads (JLC DFM: 2.03)
-
-# No passives here: J1/J2 -> U17/U18 -> U2 and U2 -> U19 -> J3 (x0,y0,x1,y1)
-SS_CORRIDORS = [(12.0, 17.5, 40.0, 32.4), (22.0, 35.6, 30.0, 58.6),
-                ANTENNA_KEEPOUT,
-                # USB 2.0 pairs on F.Cu (route_usb2.py): keep passives off
-                (17.5, 11.9, 26.2, 20.9), (21.2, 19.6, 31.3, 24.9),
-                (42.4, 11.8, 46.3, 15.4), (27.8, 33.8, 31.4, 51.6)]
 
 # Net classes (.kicad_pro).  USB_DIFF numbers are an IPC-2141 estimate for
 # 90 ohm differential on L1 over L2 of JLC04161H-3313 (~0.1 mm 3313 prepreg,
@@ -159,11 +59,14 @@ NETCLASSES = {
 }
 NETCLASS_PATTERNS = [
     ("*_SSTX_?", "USB_DIFF"), ("*_SSRX_?", "USB_DIFF"),
-    ("PCA_D?", "USB_DIFF"), ("PCB_D?", "USB_DIFF"), ("PER_D?", "USB_DIFF"),
-    ("AUX_D?", "USB_DIFF"),
-    # VBUS_A/B and the peripheral path carry the peripheral's up to 1.2 A
-    ("VBUS_A", "POWER"), ("VBUS_B", "POWER"), ("VBUS_PERIPH*", "POWER"),
-    ("VBUS_AUX", "POWER_LIGHT"), ("+5V_SYS", "POWER_LIGHT"), ("+3V3", "POWER"),
+    ("PCA_D?", "USB_DIFF"), ("PCB_D?", "USB_DIFF"), ("UP_D?", "USB_DIFF"),
+    ("P?_D?", "USB_DIFF"), ("H4_D?", "USB_DIFF"), ("KB?_D?", "USB_DIFF"),
+    ("RP_USB_D?", "USB_DIFF"), ("RP_HOST_D?", "USB_DIFF"), ("AUX_D?", "USB_DIFF"),
+    # the port supply path carries up to 2.5 A in all, 1.4 A per port
+    ("VBUS_A", "POWER"), ("VBUS_B", "POWER"), ("VBUS_PC", "POWER"),
+    ("VBUS_HUB", "POWER"), ("VBUS_P?", "POWER"), ("VBUS_AUX", "POWER"),
+    ("+5V_SYS", "POWER_LIGHT"), ("+3V3", "POWER"), ("+1V1", "POWER"),
+    ("U5_SW", "POWER"), ("U31_SW", "POWER"),
     # GROVE_5V (100 mA PTC) and the HDMI 5 V lines (55 mA) are signal width
 ]
 
@@ -282,8 +185,20 @@ def load_fp(fpid):
     # e.g. the ESP32 footprint's thermal-pad holes are 0.2 mm in 0.6 mm pads
     for pd in fp.Pads():
         d = pd.GetDrillSize()
+        # EasyEDA draws plastic locating pegs as plated holes with no ring
+        # (pad = drill, no number): JLC DFM flags "PTH without pad" - make them NPTH
+        if (pd.GetAttribute() == pcbnew.PAD_ATTRIB_PTH and not pd.GetNumber()
+                and d.x and pd.GetSize().x <= d.x and pd.GetSize().y <= d.y):
+            pd.SetAttribute(pcbnew.PAD_ATTRIB_NPTH)
+            pd.SetLayerSet(pcbnew.PAD.UnplatedHoleMask())
+            continue
         if d.x and pd.GetAttribute() == pcbnew.PAD_ATTRIB_PTH and d.x < mm(MIN_DRILL):
             pd.SetDrillSize(pcbnew.VECTOR2I(mm(MIN_DRILL), mm(MIN_DRILL)))
+            # ... with JLC's 0.15 mm annular ring (thermal vias sit in the
+            # exposed pad's copper anyway)
+            ring = mm(MIN_DRILL + 0.32)
+            if pd.GetSize().x < ring:
+                pd.SetSize(pcbnew.VECTOR2I(ring, ring))
     if fpid in SLOT_WIDEN:
         num, slot_w, pad_w = SLOT_WIDEN[fpid]
         for pd in fp.Pads():
@@ -294,29 +209,6 @@ def load_fp(fpid):
     if fpid in FIX_COURTYARD:
         _rect_courtyard(fp)
     return fp
-
-
-# Silkscreen: functional labels instead of reference designators,
-# >= 1.0 mm text.  (text, x, y, size, rotation)
-J9_X, J9_Y = 52.0, 14.0          # J9 pin 1 (keep in sync with ANCHORS)
-LABELS = [
-    ("picoKVM rev A", 80.0, 27.0, 1.5, 0),
-    ("USB A", 17.0, 31.5, 1.2, 0),
-    ("USB B", 35.0, 31.5, 1.2, 0),
-    ("HDMI 1", 49.0, 52.8, 1.0, 0),
-    ("HDMI 2", 75.0, 52.8, 1.0, 0),
-    ("PERIPHERALS", 13.0, 66.0, 1.0, 90),
-    ("AUX / FLASH", 95.0, 16.0, 1.0, 0),
-    ("GROVE BTN", 2.3, H / 2 - 12.5, 1.0, 90),
-    ("GPIO", J9_X - 4.6, J9_Y - 1.27, 1.0, 0),
-    ("UART", 77.8, 15.8, 1.0, 0),
-    ("RESET", 52.0, 25.7, 1.0, 0),
-    ("BOOT", 60.0, 25.7, 1.0, 0),
-    ("PC SW", 68.0, 25.7, 1.0, 0),
-    ("STATUS", LED_X - 6.8, H - 1.3, 1.0, 0),   # beside the LED, along the edge
-] + [  # GPIO numbers over J9's near row (even pins 2..16 = GPIO35..42)
-    (str(35 + k), J9_X + 2.54 * k, J9_Y - 2.54 - 2.2, 1.0, 0) for k in range(8)
-]
 
 
 def add_labels(board):
@@ -461,6 +353,15 @@ def overlaps(a, b):
     return not (a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1])
 
 
+def frozen_spot(spot):
+    """A placement_freeze.py spot on the current board: parts below the band
+    the board grew by (FREEZE_SPLIT) move down with the front edge."""
+    x, y, rot = spot
+    if y > FREEZE_SPLIT:
+        y += H - FREEZE_H
+    return (x, y, rot)
+
+
 def main():
     parts = json.load(open(os.path.join(OUT, "kvm_board.json")))
     pcb_path = os.path.join(OUT, "kvm_board.kicad_pcb")
@@ -522,27 +423,96 @@ def main():
         anchors[ref] = (x, y, rot)
         mech.append((ref, fps[ref][1]["value"], edge, along, prot))
     anchors.update(ANCHORS)
+    anchors.update(FIXED_PASSIVES)
+    for (value, net), at in FIXED_BY_NET.items():
+        refs = [p["ref"] for p in parts if p["value"] == value and net in p["pads"].values()]
+        spots = at if isinstance(at, list) else [at]    # a list: one spot per matching part
+        if len(refs) != len(spots):
+            sys.exit(f"FIXED_BY_NET {value} on {net}: {len(spots)} spot(s) for {refs or 'no part'}")
+        for ref, spot in zip(sorted(refs, key=lambda r: int(r[1:])), spots):
+            anchors[ref] = spot
+    for ref, spot in FREEZE.items():        # placement_freeze.py: everything else as routed
+        if ref in fps:
+            anchors.setdefault(ref, frozen_spot(spot))
     write_mechanical(mech)
+
+    # Type-A stacks: ESD parts and AC-coupling capacitors inboard of the pins
+    for jref, sp in STACK_PARTS.items():
+        jx, jy, _ = anchors[jref]
+        anchors[sp["tx_esd"]] = (jx - STACK_ESD_DX, jy + STACK_ESD_DY, 0)
+        anchors[sp["rx_esd"]] = (jx + STACK_ESD_DX, jy + STACK_ESD_DY, 0)
+        for cref, dx in zip(sp["caps"], (-3.65, -2.55, -1.45, -0.35)):
+            anchors[cref] = (jx + dx, jy + STACK_CAP_DY, 90)
+
+    def pad_mm(fp, num):
+        pd = next(q for q in fp.Pads() if q.GetNumber() == num)
+        return pcbnew.ToMM(pd.GetPosition().x), pcbnew.ToMM(pd.GetPosition().y), pd
+
+    def facing(fp, pin, compass):
+        """Rotation (multiple of 90) that puts `pin` on the given side."""
+        want = {"N": (0, -1), "S": (0, 1), "E": (1, 0), "W": (-1, 0)}[compass]
+        best = None
+        for rot in (0, 90, 180, 270):
+            fp.SetOrientationDegrees(rot)
+            fp.SetPosition(pt(0, 0))
+            x, y, _ = pad_mm(fp, pin)
+            score = x * want[0] + y * want[1]
+            if best is None or score > best[0]:
+                best = (score, rot)
+        return best[1]
 
     # fixed placement (and warn if two fixed parts overlap)
     placed, fixed = [], {}
     for ref, (x, y, rot) in anchors.items():
         fp = fps[ref][0]
+        if ref in ORIENT:
+            rot = facing(fp, *ORIENT[ref])
         fp.SetOrientationDegrees(rot)
         fp.SetPosition(pt(x, y))
-        b = bbox_mm(fp, 0.1)
+        b = bbox_mm(fp, 0.0 if ref[0] == "C" else 0.1)
         if ref.startswith("H"):
-            b = (x - SCREW_KEEPOUT, y - SCREW_KEEPOUT, x + SCREW_KEEPOUT, y + SCREW_KEEPOUT)
+            # against fixed parts only the screw head matters (5.5 mm + margin)
+            b = (x - SCREW_HEAD, y - SCREW_HEAD, x + SCREW_HEAD, y + SCREW_HEAD)
         for other, ob in fixed.items():
             if overlaps(b, ob):
                 problems.append(f"{ref} overlaps {other}")
         fixed[ref] = b
+        if ref.startswith("H"):
+            b = (x - SCREW_KEEPOUT, y - SCREW_KEEPOUT, x + SCREW_KEEPOUT, y + SCREW_KEEPOUT)
         placed.append(b if ref.startswith("H") else bbox_mm(fp))
+
+    # supply-pin capacitors: radially outward from their pin, the supply pad
+    # towards the chip
+    def radial(cref, uref, pin, dist):
+        u, c = fps[uref][0], fps[cref][0]
+        px, py, pad = pad_mm(u, pin)
+        dx, dy = px - pcbnew.ToMM(u.GetPosition().x), py - pcbnew.ToMM(u.GetPosition().y)
+        d = (math.copysign(1, dx), 0) if abs(dx) > abs(dy) else (0, math.copysign(1, dy))
+        c.SetPosition(pt(round(px + d[0] * dist, 3), round(py + d[1] * dist, 3)))
+        best = None
+        for rot in (0, 90, 180, 270):
+            c.SetOrientationDegrees(rot)
+            q = next(pd for pd in c.Pads() if pd.GetNetname() == pad.GetNetname())
+            gap = (q.GetPosition() - pad.GetPosition()).EuclideanNorm()
+            if best is None or gap < best[0]:
+                best = (gap, rot)
+        c.SetOrientationDegrees(best[1])
+        b = bbox_mm(c, 0.0)
+        for other, ob in fixed.items():
+            if overlaps(b, ob):
+                problems.append(f"{cref} (at {uref}.{pin}) overlaps {other}")
+        placed.append(bbox_mm(c, 0.05))
+        anchors[cref] = None        # placed: not for the automatic pass
+
+    for cref, pin, dist in HUB_DECOUPLING:
+        radial(cref, "U30", pin, dist)
+    for cref, pin, dist in RP_DECOUPLING:
+        radial(cref, "U45", pin, dist)
 
     # passive placement by net affinity
     home_by_net = {}
     for ref in anchors:
-        if ref[0] in "UJD":
+        if ref[0] in "UJD" and anchors[ref] is not None:
             for net in fps[ref][1]["pads"].values():
                 if net not in POWER_NETS:
                     home_by_net.setdefault(net, ref)
@@ -576,7 +546,7 @@ def main():
         return b[0] >= 0.5 and b[1] >= 0.5 and b[2] <= W - 0.5 and b[3] <= H - 0.5
 
     # keep the USB 3.0 SuperSpeed corridors free (route_ss.py routes them)
-    placed.extend(SS_CORRIDORS)
+    placed.extend(CORRIDORS)
 
     # JLC hand-solders through-hole pins after reflow: keep SMD passives
     # THT_SMD_GAP clear of every plated through-hole pad so the iron can't
@@ -590,6 +560,53 @@ def main():
                                pcbnew.ToMM(bb.GetRight()) + THT_SMD_GAP,
                                pcbnew.ToMM(bb.GetBottom()) + THT_SMD_GAP))
 
+    # parts with a placement hint (kvm_board.py at=): right at their pin.
+    # Candidates on a 0.25 mm grid within AT_REACH of the pin, all four
+    # rotations; the one whose pad on the pin's net lands closest to the pin
+    # wins.  They go before the net-affinity pass so it can't take the spot.
+    AT_REACH, AT_STEP = (6.0, 12.0), 0.25     # near the pin first, then a wider look
+    hinted = [(p, *p["at"]) for p, _ in plan if p.get("at")]
+    hinted.sort(key=lambda h: AT_FIRST.index(h[1]) if h[1] in AT_FIRST else len(AT_FIRST))
+    plan = [(p, home) for p, home in plan if not p.get("at")]
+    for p, uref, num in hinted:
+        fp = fps[p["ref"]][0]
+        px, py, upad = pad_mm(fps[uref][0], num)
+        # the part's other pad (a capacitor's GND) is drawn towards the IC's
+        # pins on that net, so the loop through the IC closes short too
+        shapes = []
+        for rot in (0, 90, 180, 270):
+            fp.SetOrientationDegrees(rot)
+            fp.SetPosition(pt(0, 0))
+            q = next((pd for pd in fp.Pads() if pd.GetNetname() == upad.GetNetname()), None)
+            qx, qy = (pcbnew.ToMM(q.GetPosition().x), pcbnew.ToMM(q.GetPosition().y)) if q else (0, 0)
+            o = next((pd for pd in fp.Pads() if pd.GetNetname() != upad.GetNetname()), None)
+            ox, oy = (pcbnew.ToMM(o.GetPosition().x), pcbnew.ToMM(o.GetPosition().y)) if o else (0, 0)
+            targets = [(pcbnew.ToMM(t.GetPosition().x), pcbnew.ToMM(t.GetPosition().y))
+                       for t in fps[uref][0].Pads() if o is not None and t.GetNetname() == o.GetNetname()]
+            shapes.append((rot, bbox_mm(fp), qx, qy, ox, oy, targets))
+        cands = []
+        n = int(AT_REACH[-1] / AT_STEP)
+        for i in range(-n, n + 1):
+            for j in range(-n, n + 1):
+                x, y = round(px + i * AT_STEP, 3), round(py + j * AT_STEP, 3)
+                for rot, b, qx, qy, ox, oy, targets in shapes:
+                    gap = math.hypot(x + qx - px, y + qy - py)
+                    if gap <= AT_REACH[-1]:
+                        other = min((math.hypot(x + ox - tx, y + oy - ty) for tx, ty in targets), default=0.0)
+                        cands.append((gap + 0.5 * other, gap, x, y, rot, (b[0] + x, b[1] + y, b[2] + x, b[3] + y)))
+        cands.sort(key=lambda c: c[0])
+        for _, gap, x, y, rot, b in cands:
+            if outline_ok(b) and not any(overlaps(b, o) for o in placed):
+                fp.SetOrientationDegrees(rot)
+                fp.SetPosition(pt(x, y))
+                placed.append(b)
+                if gap > AT_REACH[0]:
+                    print(f'  {p["ref"]}: {gap:.1f} mm from {uref}.{num} (nothing closer free)')
+                break
+        else:       # crowded: the ring search round the IC, as without a hint
+            print(f'  {p["ref"]}: no room within {AT_REACH[-1]} mm of {uref}.{num}, placed near {uref}')
+            plan.insert(0, (p, uref))
+
     for p, home in plan:
         fp = fps[p["ref"]][0]
         hx, hy = (pcbnew.ToMM(v) for v in (fps[home][0].GetPosition().x,
@@ -601,16 +618,19 @@ def main():
                           pd.GetPosition().y - fps[home][0].GetPosition().y)]
         r0 = min(max(abs(v) for v in pads) + 1.0, 6.0)
         done = False
-        for step in range(0, 400):
-            r = r0 + 0.5 * (step // 16)
-            a = (step % 16) * math.pi / 8
-            x, y = hx + r * math.cos(a), hy + r * math.sin(a)
-            fp.SetPosition(pt(round(x, 2), round(y, 2)))
-            b = bbox_mm(fp)
-            if outline_ok(b) and not any(overlaps(b, o) for o in placed):
-                placed.append(b)
-                done = True
-                break
+        r = r0
+        while not done and r < r0 + 60:          # rings 0.5 mm apart, ~0.7 mm steps
+            n = max(16, int(2 * math.pi * r / 0.7))
+            for k in range(n):
+                a = k * 2 * math.pi / n
+                x, y = hx + r * math.cos(a), hy + r * math.sin(a)
+                fp.SetPosition(pt(round(x, 2), round(y, 2)))
+                b = bbox_mm(fp)
+                if outline_ok(b) and not any(overlaps(b, o) for o in placed):
+                    placed.append(b)
+                    done = True
+                    break
+            r += 0.5
         if not done:
             problems.append(f'{p["ref"]}: no free spot near {home}')
 
@@ -641,6 +661,510 @@ def main():
         ol = z.Outline()
         ol.NewOutline()
         for x, y in ((0.3, 0.3), (W - 0.3, 0.3), (W - 0.3, H - 0.3), (0.3, H - 0.3)):
+            ol.Append(mm(x), mm(y))
+        board.Add(z)
+
+    # +1V1: a pour on B.Cu under its loads (the In2 plane stays whole)
+    for outline in (V1_OUTLINE,):
+        z = pcbnew.ZONE(board)
+        z.SetLayer(pcbnew.B_Cu)
+        z.SetNet(netinfo["+1V1"])
+        z.SetAssignedPriority(1)
+        z.SetLocalClearance(mm(0.25))
+        z.SetMinThickness(mm(0.2))
+        z.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
+        z.SetIslandRemovalMode(pcbnew.ISLAND_REMOVAL_MODE_ALWAYS)
+        z.SetIsFilled(False)
+        ol = z.Outline()
+        ol.NewOutline()
+        for x, y in outline:
+            ol.Append(mm(x), mm(y))
+        board.Add(z)
+
+    # antenna keep-out: no tracks, vias, pads or copper fill on any layer
+    ka = pcbnew.ZONE(board)
+    ka.SetIsRuleArea(True)
+    ka.SetZoneName("ESP32 antenna keep-out")
+    ls = pcbnew.LSET()
+    for layer in (pcbnew.F_Cu, pcbnew.In1_Cu, pcbnew.In2_Cu, pcbnew.B_Cu):
+        ls.AddLayer(layer)
+    ka.SetLayerSet(ls)
+    ka.SetDoNotAllowTracks(True)
+    ka.SetDoNotAllowVias(True)
+    ka.SetDoNotAllowPads(True)
+    ka.SetDoNotAllowZoneFills(True)
+    ka.SetDoNotAllowFootprints(False)   # the module itself sits over it
+    ol = ka.Outline()
+    ol.NewOutline()
+    x0, y0, x1, y1 = ANTENNA_KEEPOUT
+    for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1)):
+        ol.Append(mm(x), mm(y))
+    board.Add(ka)
+
+    # Grove ports: their leads run from the pads back into the housing over
+    # the board; a via there would sit under a lead (JLC DFM "lead to hole").
+    # Via-only keep-out from the board edge to the signal pads, as wide as
+    # the signal pads (the GND tabs outside it keep their vias).
+    for ref in ("J8", "J11"):
+        edge = EDGE_PARTS[ref][0]
+        sig = [pd.GetBoundingBox() for pd in fps[ref][0].Pads() if pd.GetNumber() in ("1", "2", "3", "4")]
+        bx0 = min(pcbnew.ToMM(b.GetLeft()) for b in sig)
+        bx1 = max(pcbnew.ToMM(b.GetRight()) for b in sig)
+        by0 = min(pcbnew.ToMM(b.GetTop()) for b in sig)
+        by1 = max(pcbnew.ToMM(b.GetBottom()) for b in sig)
+        if edge == "left":
+            box = (0.0, by0 - 0.3, bx0, by1 + 0.3)
+        elif edge == "rear":
+            box = (bx0 - 0.3, 0.0, bx1 + 0.3, by0)
+        else:
+            raise SystemExit(f"{ref}: no lead keep-out rule for the {edge} edge")
+        kv = pcbnew.ZONE(board)
+        kv.SetIsRuleArea(True)
+        kv.SetZoneName(f"{ref} lead keep-out")
+        kv.SetLayerSet(ls)
+        kv.SetDoNotAllowVias(True)
+        kv.SetDoNotAllowTracks(False)
+        kv.SetDoNotAllowPads(False)
+        kv.SetDoNotAllowZoneFills(False)
+        kv.SetDoNotAllowFootprints(False)
+        ol = kv.Outline()
+        ol.NewOutline()
+        x0, y0, x1, y1 = box
+        for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1)):
+            ol.Append(mm(x), mm(y))
+        board.Add(kv)
+
+    add_labels(board)
+    tidy_silk(board)
+    pcbnew.SaveBoard(path, board)
+    print("silkscreen tidied", flush=True)
+    os._exit(0)   # before the removed objects get garbage-collected
+
+
+def refresh_models(path):
+    """Re-apply the 3D model fixes to an existing (e.g. routed) board.
+    Only needed for boards made by an older generator; a fresh board already
+    has them, so footprints whose model list KiCad's bindings won't hand over
+    are skipped rather than failing the build."""
+    board = pcbnew.LoadBoard(path)
+    done = skipped = 0
+    for fp in board.GetFootprints():
+        try:
+            fid = fp.GetFPID()
+            fresh = load_fp(f"{fid.GetLibNickname().wx_str()}:{fid.GetLibItemName().wx_str()}")
+            models = fp.Models()
+            models.clear()
+            for i in range(len(fresh.Models())):
+                models.push_back(fresh.Models()[i])
+            done += 1
+        except (AttributeError, TypeError):
+            skipped += 1
+    pcbnew.SaveBoard(path, board)
+    print(f"3D models refreshed ({done} footprints, {skipped} skipped)", flush=True)
+    os._exit(0)
+
+
+def bbox_mm(fp, grow=0.25):
+    # pads + fab/silk outline; used instead of the courtyard when there is
+    # none (EasyEDA imports draw the body on silk) or when it is much bigger
+    # (the ESP32 courtyard wraps the antenna keep-out)
+    body = pcbnew.BOX2I()
+    for pd in fp.Pads():
+        body.Merge(pd.GetBoundingBox())
+    for g in fp.GraphicalItems():
+        if g.GetClass() == "MGRAPHIC" or g.GetClass() == "PCB_SHAPE":
+            if g.GetLayer() in (pcbnew.F_Fab, pcbnew.F_SilkS):
+                body.Merge(g.GetBoundingBox())
+    bb = body
+    cy = fp.GetCourtyard(pcbnew.F_CrtYd)
+    if cy.OutlineCount():
+        c = cy.BBox()
+        if c.GetArea() < 2 * body.GetArea():
+            bb = c
+            for pd in fp.Pads():          # some courtyards miss shell lugs
+                bb.Merge(pd.GetBoundingBox())
+    t = pcbnew.ToMM
+    return (t(bb.GetLeft()) - grow, t(bb.GetTop()) - grow,
+            t(bb.GetRight()) + grow, t(bb.GetBottom()) + grow)
+
+
+def body_box(fp):
+    """Connector body in board mm: F.Fab outline, else silkscreen + pads
+    (EasyEDA imports draw the body on silk).  Courtyard margins excluded."""
+    fab, silk = pcbnew.BOX2I(), pcbnew.BOX2I()
+    for g in fp.GraphicalItems():
+        if g.GetClass() == "PCB_SHAPE":
+            if g.GetLayer() == pcbnew.F_Fab:
+                fab.Merge(g.GetBoundingBox())
+            elif g.GetLayer() == pcbnew.F_SilkS:
+                silk.Merge(g.GetBoundingBox())
+    bb = fab if fab.GetWidth() else silk
+    if not fab.GetWidth():
+        for pd in fp.Pads():
+            bb.Merge(pd.GetBoundingBox())
+    t = pcbnew.ToMM
+    return t(bb.GetLeft()), t(bb.GetTop()), t(bb.GetRight()), t(bb.GetBottom())
+
+
+def pads_box(fp):
+    bb = pcbnew.BOX2I()
+    for pd in fp.Pads():
+        bb.Merge(pd.GetBoundingBox())
+    t = pcbnew.ToMM
+    return t(bb.GetLeft()), t(bb.GetTop()), t(bb.GetRight()), t(bb.GetBottom())
+
+
+# edge -> (rotation that turns the footprint's local +Y opening outward,
+#          outward axis, sign, edge coordinate)
+EDGES = {"rear": (180, 1, -1, 0.0), "front": (0, 1, +1, H),
+         "left": (-90, 0, -1, 0.0), "right": (90, 0, +1, W)}
+
+
+def edge_anchor(fp, edge, along):
+    """Position an edge connector; returns (x, y, rot, protrusion_mm)."""
+    rot, axis, sgn, e = EDGES[edge]
+    fp.SetOrientationDegrees(rot)
+    fp.SetPosition(pt(0, 0))
+    body, pads = body_box(fp), pads_box(fp)
+    # outward extent relative to the origin (larger = further out)
+    out = lambda box: max(sgn * box[axis], sgn * box[axis + 2])
+    c = sgn * e + PROTRUDE - out(body)                 # body face at edge + PROTRUDE
+    c = min(c, sgn * e - EDGE_PAD_CLEAR - out(pads))   # keep pads on the board
+    pos = sgn * c
+    protrusion = c + out(body) - sgn * e
+    x, y = (pos, along) if axis == 0 else (along, pos)
+    return round(x, 3), round(y, 3), rot, round(protrusion, 2)
+
+
+def overlaps(a, b):
+    return not (a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1])
+
+
+def frozen_spot(spot):
+    """A placement_freeze.py spot on the current board: parts below the band
+    the board grew by (FREEZE_SPLIT) move down with the front edge."""
+    x, y, rot = spot
+    if y > FREEZE_SPLIT:
+        y += H - FREEZE_H
+    return (x, y, rot)
+
+
+def main():
+    parts = json.load(open(os.path.join(OUT, "kvm_board.json")))
+    pcb_path = os.path.join(OUT, "kvm_board.kicad_pcb")
+    board = pcbnew.NewBoard(pcb_path)
+    board.SetCopperLayerCount(4)
+
+    # JLCPCB 4-layer capabilities (with margin)
+    ds = board.GetDesignSettings()
+    ds.m_MinClearance = mm(0.1)
+    ds.m_TrackMinWidth = mm(0.1)
+    ds.m_MinThroughDrill = mm(0.3)      # JLC's free via tier: 0.3 mm drill
+    ds.m_ViasMinSize = mm(0.4)
+    ds.m_ViasMinAnnularWidth = mm(0.07)
+    ds.m_HoleClearance = mm(0.2)
+    ds.m_HoleToHoleMin = mm(0.25)
+    ds.m_CopperEdgeClearance = mm(0.25)
+    ds.m_SilkClearance = mm(0)
+
+    # nets
+    netinfo = {}
+    for p in parts:
+        for net in p["pads"].values():
+            if net not in netinfo:
+                ni = pcbnew.NETINFO_ITEM(board, net)
+                board.Add(ni)
+                netinfo[net] = ni
+
+    # footprints
+    fps, problems = {}, []
+    for p in parts:
+        fp = load_fp(p["footprint"])
+        fp.SetReference(p["ref"])
+        fp.SetValue(p["value"])
+        if p["lcsc"]:
+            fp.SetField("LCSC", p["lcsc"])
+            fp.GetField("LCSC").SetVisible(False)
+        else:
+            # mechanical / hand-soldered: keep out of JLC BOM and CPL
+            fp.SetExcludedFromBOM(True)
+            fp.SetExcludedFromPosFiles(True)
+        pad_nums = set()
+        for pad in fp.Pads():
+            num = pad.GetNumber()
+            pad_nums.add(num)
+            if num in p["pads"]:
+                pad.SetNet(netinfo[p["pads"][num]])
+            elif num == "" and p["ref"] == "U1":
+                pad.SetNet(netinfo["GND"])   # ESP32 thermal-pad sub-pads
+        missing = set(p["pads"]) - pad_nums
+        if missing:
+            problems.append(f'{p["ref"]}: symbol pins without pads {sorted(missing)}')
+        board.Add(fp)
+        fps[p["ref"]] = (fp, p)
+
+    # edge connectors first: computed from their footprints
+    anchors, mech = {}, []
+    for ref, (edge, along) in EDGE_PARTS.items():
+        x, y, rot, prot = edge_anchor(fps[ref][0], edge, along)
+        anchors[ref] = (x, y, rot)
+        mech.append((ref, fps[ref][1]["value"], edge, along, prot))
+    anchors.update(ANCHORS)
+    anchors.update(FIXED_PASSIVES)
+    for (value, net), at in FIXED_BY_NET.items():
+        refs = [p["ref"] for p in parts if p["value"] == value and net in p["pads"].values()]
+        spots = at if isinstance(at, list) else [at]    # a list: one spot per matching part
+        if len(refs) != len(spots):
+            sys.exit(f"FIXED_BY_NET {value} on {net}: {len(spots)} spot(s) for {refs or 'no part'}")
+        for ref, spot in zip(sorted(refs, key=lambda r: int(r[1:])), spots):
+            anchors[ref] = spot
+    for ref, spot in FREEZE.items():        # placement_freeze.py: everything else as routed
+        if ref in fps:
+            anchors.setdefault(ref, frozen_spot(spot))
+    write_mechanical(mech)
+
+    # Type-A stacks: ESD parts and AC-coupling capacitors inboard of the pins
+    for jref, sp in STACK_PARTS.items():
+        jx, jy, _ = anchors[jref]
+        anchors[sp["tx_esd"]] = (jx - STACK_ESD_DX, jy + STACK_ESD_DY, 0)
+        anchors[sp["rx_esd"]] = (jx + STACK_ESD_DX, jy + STACK_ESD_DY, 0)
+        for cref, dx in zip(sp["caps"], (-3.65, -2.55, -1.45, -0.35)):
+            anchors[cref] = (jx + dx, jy + STACK_CAP_DY, 90)
+
+    def pad_mm(fp, num):
+        pd = next(q for q in fp.Pads() if q.GetNumber() == num)
+        return pcbnew.ToMM(pd.GetPosition().x), pcbnew.ToMM(pd.GetPosition().y), pd
+
+    def facing(fp, pin, compass):
+        """Rotation (multiple of 90) that puts `pin` on the given side."""
+        want = {"N": (0, -1), "S": (0, 1), "E": (1, 0), "W": (-1, 0)}[compass]
+        best = None
+        for rot in (0, 90, 180, 270):
+            fp.SetOrientationDegrees(rot)
+            fp.SetPosition(pt(0, 0))
+            x, y, _ = pad_mm(fp, pin)
+            score = x * want[0] + y * want[1]
+            if best is None or score > best[0]:
+                best = (score, rot)
+        return best[1]
+
+    # fixed placement (and warn if two fixed parts overlap)
+    placed, fixed = [], {}
+    for ref, (x, y, rot) in anchors.items():
+        fp = fps[ref][0]
+        if ref in ORIENT:
+            rot = facing(fp, *ORIENT[ref])
+        fp.SetOrientationDegrees(rot)
+        fp.SetPosition(pt(x, y))
+        b = bbox_mm(fp, 0.0 if ref[0] == "C" else 0.1)
+        if ref.startswith("H"):
+            # against fixed parts only the screw head matters (5.5 mm + margin)
+            b = (x - SCREW_HEAD, y - SCREW_HEAD, x + SCREW_HEAD, y + SCREW_HEAD)
+        for other, ob in fixed.items():
+            if overlaps(b, ob):
+                problems.append(f"{ref} overlaps {other}")
+        fixed[ref] = b
+        if ref.startswith("H"):
+            b = (x - SCREW_KEEPOUT, y - SCREW_KEEPOUT, x + SCREW_KEEPOUT, y + SCREW_KEEPOUT)
+        placed.append(b if ref.startswith("H") else bbox_mm(fp))
+
+    # supply-pin capacitors: radially outward from their pin, the supply pad
+    # towards the chip
+    def radial(cref, uref, pin, dist):
+        u, c = fps[uref][0], fps[cref][0]
+        px, py, pad = pad_mm(u, pin)
+        dx, dy = px - pcbnew.ToMM(u.GetPosition().x), py - pcbnew.ToMM(u.GetPosition().y)
+        d = (math.copysign(1, dx), 0) if abs(dx) > abs(dy) else (0, math.copysign(1, dy))
+        c.SetPosition(pt(round(px + d[0] * dist, 3), round(py + d[1] * dist, 3)))
+        best = None
+        for rot in (0, 90, 180, 270):
+            c.SetOrientationDegrees(rot)
+            q = next(pd for pd in c.Pads() if pd.GetNetname() == pad.GetNetname())
+            gap = (q.GetPosition() - pad.GetPosition()).EuclideanNorm()
+            if best is None or gap < best[0]:
+                best = (gap, rot)
+        c.SetOrientationDegrees(best[1])
+        b = bbox_mm(c, 0.0)
+        for other, ob in fixed.items():
+            if overlaps(b, ob):
+                problems.append(f"{cref} (at {uref}.{pin}) overlaps {other}")
+        placed.append(bbox_mm(c, 0.05))
+        anchors[cref] = None        # placed: not for the automatic pass
+
+    for cref, pin, dist in HUB_DECOUPLING:
+        radial(cref, "U30", pin, dist)
+    for cref, pin, dist in RP_DECOUPLING:
+        radial(cref, "U45", pin, dist)
+
+    # passive placement by net affinity
+    home_by_net = {}
+    for ref in anchors:
+        if ref[0] in "UJD" and anchors[ref] is not None:
+            for net in fps[ref][1]["pads"].values():
+                if net not in POWER_NETS:
+                    home_by_net.setdefault(net, ref)
+
+    def home_of(p):
+        nets = [n for n in p["pads"].values() if n not in POWER_NETS]
+        for n in nets:  # series protection belongs at its connector
+            if n in NET_HOME:
+                return NET_HOME[n]
+        for n in nets:  # prefer an IC over a connector
+            h = home_by_net.get(n)
+            if h and h.startswith("U"):
+                return h
+        for n in nets:
+            if n in home_by_net:
+                return home_by_net[n]
+        return None
+
+    # power-only caps follow the IC created just before them
+    last_ic = None
+    plan = []
+    for p in parts:
+        ref = p["ref"]
+        if ref in anchors:
+            if ref.startswith("U"):
+                last_ic = ref
+            continue
+        plan.append((p, home_of(p) or last_ic or "U1"))
+
+    def outline_ok(b):
+        return b[0] >= 0.5 and b[1] >= 0.5 and b[2] <= W - 0.5 and b[3] <= H - 0.5
+
+    # keep the USB 3.0 SuperSpeed corridors free (route_ss.py routes them)
+    placed.extend(CORRIDORS)
+
+    # JLC hand-solders through-hole pins after reflow: keep SMD passives
+    # THT_SMD_GAP clear of every plated through-hole pad so the iron can't
+    # disturb them (their DFM flags < 2.03 mm)
+    for fp, _ in fps.values():
+        for pd in fp.Pads():
+            if pd.GetAttribute() == pcbnew.PAD_ATTRIB_PTH and pd.GetSize().x > 0:
+                bb = pd.GetBoundingBox()
+                placed.append((pcbnew.ToMM(bb.GetLeft()) - THT_SMD_GAP,
+                               pcbnew.ToMM(bb.GetTop()) - THT_SMD_GAP,
+                               pcbnew.ToMM(bb.GetRight()) + THT_SMD_GAP,
+                               pcbnew.ToMM(bb.GetBottom()) + THT_SMD_GAP))
+
+    # parts with a placement hint (kvm_board.py at=): right at their pin.
+    # Candidates on a 0.25 mm grid within AT_REACH of the pin, all four
+    # rotations; the one whose pad on the pin's net lands closest to the pin
+    # wins.  They go before the net-affinity pass so it can't take the spot.
+    AT_REACH, AT_STEP = (6.0, 12.0), 0.25     # near the pin first, then a wider look
+    hinted = [(p, *p["at"]) for p, _ in plan if p.get("at")]
+    hinted.sort(key=lambda h: AT_FIRST.index(h[1]) if h[1] in AT_FIRST else len(AT_FIRST))
+    plan = [(p, home) for p, home in plan if not p.get("at")]
+    for p, uref, num in hinted:
+        fp = fps[p["ref"]][0]
+        px, py, upad = pad_mm(fps[uref][0], num)
+        # the part's other pad (a capacitor's GND) is drawn towards the IC's
+        # pins on that net, so the loop through the IC closes short too
+        shapes = []
+        for rot in (0, 90, 180, 270):
+            fp.SetOrientationDegrees(rot)
+            fp.SetPosition(pt(0, 0))
+            q = next((pd for pd in fp.Pads() if pd.GetNetname() == upad.GetNetname()), None)
+            qx, qy = (pcbnew.ToMM(q.GetPosition().x), pcbnew.ToMM(q.GetPosition().y)) if q else (0, 0)
+            o = next((pd for pd in fp.Pads() if pd.GetNetname() != upad.GetNetname()), None)
+            ox, oy = (pcbnew.ToMM(o.GetPosition().x), pcbnew.ToMM(o.GetPosition().y)) if o else (0, 0)
+            targets = [(pcbnew.ToMM(t.GetPosition().x), pcbnew.ToMM(t.GetPosition().y))
+                       for t in fps[uref][0].Pads() if o is not None and t.GetNetname() == o.GetNetname()]
+            shapes.append((rot, bbox_mm(fp), qx, qy, ox, oy, targets))
+        cands = []
+        n = int(AT_REACH[-1] / AT_STEP)
+        for i in range(-n, n + 1):
+            for j in range(-n, n + 1):
+                x, y = round(px + i * AT_STEP, 3), round(py + j * AT_STEP, 3)
+                for rot, b, qx, qy, ox, oy, targets in shapes:
+                    gap = math.hypot(x + qx - px, y + qy - py)
+                    if gap <= AT_REACH[-1]:
+                        other = min((math.hypot(x + ox - tx, y + oy - ty) for tx, ty in targets), default=0.0)
+                        cands.append((gap + 0.5 * other, gap, x, y, rot, (b[0] + x, b[1] + y, b[2] + x, b[3] + y)))
+        cands.sort(key=lambda c: c[0])
+        for _, gap, x, y, rot, b in cands:
+            if outline_ok(b) and not any(overlaps(b, o) for o in placed):
+                fp.SetOrientationDegrees(rot)
+                fp.SetPosition(pt(x, y))
+                placed.append(b)
+                if gap > AT_REACH[0]:
+                    print(f'  {p["ref"]}: {gap:.1f} mm from {uref}.{num} (nothing closer free)')
+                break
+        else:       # crowded: the ring search round the IC, as without a hint
+            print(f'  {p["ref"]}: no room within {AT_REACH[-1]} mm of {uref}.{num}, placed near {uref}')
+            plan.insert(0, (p, uref))
+
+    for p, home in plan:
+        fp = fps[p["ref"]][0]
+        hx, hy = (pcbnew.ToMM(v) for v in (fps[home][0].GetPosition().x,
+                                           fps[home][0].GetPosition().y))
+        # search radius from the pad extent (courtyards may include
+        # antenna keep-outs etc.)
+        pads = [pcbnew.ToMM(v) for pd in fps[home][0].Pads()
+                for v in (pd.GetPosition().x - fps[home][0].GetPosition().x,
+                          pd.GetPosition().y - fps[home][0].GetPosition().y)]
+        r0 = min(max(abs(v) for v in pads) + 1.0, 6.0)
+        done = False
+        r = r0
+        while not done and r < r0 + 60:          # rings 0.5 mm apart, ~0.7 mm steps
+            n = max(16, int(2 * math.pi * r / 0.7))
+            for k in range(n):
+                a = k * 2 * math.pi / n
+                x, y = hx + r * math.cos(a), hy + r * math.sin(a)
+                fp.SetPosition(pt(round(x, 2), round(y, 2)))
+                b = bbox_mm(fp)
+                if outline_ok(b) and not any(overlaps(b, o) for o in placed):
+                    placed.append(b)
+                    done = True
+                    break
+            r += 0.5
+        if not done:
+            problems.append(f'{p["ref"]}: no free spot near {home}')
+
+    # outline
+    corners = [(0, 0), (W, 0), (W, H), (0, H)]
+    for (x1, y1), (x2, y2) in zip(corners, corners[1:] + corners[:1]):
+        seg = pcbnew.PCB_SHAPE(board)
+        seg.SetShape(pcbnew.SHAPE_T_SEGMENT)
+        seg.SetStart(pt(x1, y1))
+        seg.SetEnd(pt(x2, y2))
+        seg.SetLayer(pcbnew.Edge_Cuts)
+        seg.SetWidth(mm(0.1))
+        board.Add(seg)
+
+    # Planes: In1 solid GND (reference for the F.Cu USB pairs), In2 solid
+    # +3V3 (SIG/GND/PWR/SIG), F/B flooded with GND
+    for layer, net in ((pcbnew.In1_Cu, "GND"), (pcbnew.In2_Cu, "+3V3"),
+                       (pcbnew.F_Cu, "GND"), (pcbnew.B_Cu, "GND")):
+        z = pcbnew.ZONE(board)
+        z.SetLayer(layer)
+        z.SetNet(netinfo[net])
+        z.SetLocalClearance(mm(0.3))
+        z.SetMinThickness(mm(0.2))
+        z.SetPadConnection(pcbnew.ZONE_CONNECTION_THERMAL)
+        # no floating scraps of pour (e.g. a sliver held only by one spoke)
+        z.SetIslandRemovalMode(pcbnew.ISLAND_REMOVAL_MODE_ALWAYS)
+        z.SetIsFilled(False)
+        ol = z.Outline()
+        ol.NewOutline()
+        for x, y in ((0.3, 0.3), (W - 0.3, 0.3), (W - 0.3, H - 0.3), (0.3, H - 0.3)):
+            ol.Append(mm(x), mm(y))
+        board.Add(z)
+
+    # +1V1: a pour on B.Cu under its loads (the In2 plane stays whole)
+    for outline in (V1_OUTLINE,):
+        z = pcbnew.ZONE(board)
+        z.SetLayer(pcbnew.B_Cu)
+        z.SetNet(netinfo["+1V1"])
+        z.SetAssignedPriority(1)
+        z.SetLocalClearance(mm(0.25))
+        z.SetMinThickness(mm(0.2))
+        z.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
+        z.SetIslandRemovalMode(pcbnew.ISLAND_REMOVAL_MODE_ALWAYS)
+        z.SetIsFilled(False)
+        ol = z.Outline()
+        ol.NewOutline()
+        for x, y in outline:
             ol.Append(mm(x), mm(y))
         board.Add(z)
 
@@ -692,8 +1216,8 @@ def main():
 
     # title block
     tb = board.GetTitleBlock()
-    tb.SetTitle("picoKVM: ESP32-S3 USB 3.0 KVM + HDMI DDC/CI")
-    tb.SetRevision("A")
+    tb.SetTitle("picoKVM: ESP32-S3 USB 3.0 KVM + 4-port hub + HDMI DDC/CI")
+    tb.SetRevision(REV)
     tb.SetCompany("github.com/FuNK3Y/picoKVM")
 
     tidy_silk(board)
@@ -753,7 +1277,8 @@ def write_mechanical(rows):
         f.write(f"Board {W:g} x {H:g} mm, origin top-left (rear-left corner), y toward the front.\n")
         f.write(f"ESP32 antenna flush with the right edge (y {ESP_Y - 9:g}..{ESP_Y + 9:g}); "
                 "keep metal and conductive filament >= 5 mm away from it.\n")
-        f.write("M3 holes at (4,4) (108,4) (4,71) (108,71); keep 8 mm around them clear.\n")
+        holes = " ".join(f"({ANCHORS[h][0]:g},{ANCHORS[h][1]:g})" for h in ("H3", "H4", "H1", "H2"))
+        f.write(f"M3 holes at {holes}; keep 8 mm around them clear.\n")
         f.write(f"Connectors stick out past the edge by up to {PROTRUDE} mm (2 mm wall - 0.5 mm);\n")
         f.write("less where a pad would get too close to the edge.\n\n")
         f.write(f"{'ref':4} {'part':28} {'edge':6} {'centre along edge':>18} {'protrusion':>11}\n")
@@ -761,12 +1286,12 @@ def write_mechanical(rows):
             f.write(f"{ref:4} {part:28} {edge:6} {along:15.2f} mm {prot:8.2f} mm\n")
             print(f"  {ref} {edge:5} at {along:6.2f} mm, protrudes {prot:.2f} mm")
         f.write("\nSide-emitting RGB status LED (SK6812SIDE-A; lens 4.0 x 2.0 mm, light exits\n"
-                "the front edge; ~2 mm hole or light pipe in the wall, centre 1.0 mm above\n"
+                "the rear edge; ~2 mm hole or light pipe in the wall, centre 1.0 mm above\n"
                 "the board surface, lens face 0.2 mm inside the edge):\n")
         f.write(f"  D3 at x = {LED_X:.2f} mm\n")
         f.write("\nButtons (TS-1187A-C-F-B, 5.1 x 5.1 mm, top of actuator 3.0 mm above the board;\n"
                 "press them through lid flexures):\n")
-        for ref, name in (("SW1", "RESET"), ("SW2", "BOOT"), ("SW3", "PC SW")):
+        for ref, name in BUTTONS:
             x, y, _ = ANCHORS[ref]
             f.write(f"  {ref} {name:6} centre ({x:.2f}, {y:.2f}) mm\n")
 

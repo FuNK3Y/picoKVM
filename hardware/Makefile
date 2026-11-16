@@ -4,7 +4,7 @@
 #   make outputs    DRC, renders, JLCPCB files and impedance check for the current PCB
 #   make parts      re-import LCSC symbols/footprints/3D models
 
-LCSC := C544517 C7501849 C7501850 C138388 C138714 C165948 C318884 C7429571 C55266 C273616 C125115 C571338 C5378721 C128396
+LCSC := C544517 C7501849 C7501881 C138388 C138714 C165948 C318884 C7429571 C55266 C273616 C125115 C571338 C5378721 C128396 C43389 C225760
 GERBER_LAYERS := F.Cu,In1.Cu,In2.Cu,B.Cu,F.Paste,B.Paste,F.Silkscreen,B.Silkscreen,F.Mask,B.Mask,Edge.Cuts
 PCB := out/kvm_board.kicad_pcb
 
@@ -36,7 +36,9 @@ render:
 	python3 hw/make_pcb.py models || echo "model refresh skipped (board keeps its models)"
 	timeout -k 10 300 kicad-cli pcb render --width 1600 --height 1100 --side top --quality basic -o out/img/top.png $(PCB) >/dev/null
 	timeout -k 10 300 kicad-cli pcb render --width 1600 --height 1100 --side bottom --quality basic -o out/img/bottom.png $(PCB) >/dev/null
-	timeout -k 10 300 kicad-cli pcb render --width 1600 --height 1100 --rotate 315,0,30 --perspective --floor --quality basic -o out/img/iso.png $(PCB) >/dev/null
+	# zoom 0.8: the default framing fits the board seen from above, so in this
+	# tilted perspective view the near corner and the front connectors fall off
+	timeout -k 10 300 kicad-cli pcb render --width 1600 --height 1100 --rotate 315,0,30 --perspective --floor --zoom 0.8 --quality basic -o out/img/iso.png $(PCB) >/dev/null
 
 # Gerbers/drill come from the panel (board + JLC edge rails, hw/panel.py);
 # BOM/CPL from the board, whose coordinates the panel keeps.
@@ -48,7 +50,7 @@ fab:
 	python3 hw/panel.py
 	cp out/kvm_board.kicad_pro out/kvm_board_panel.kicad_pro
 	cp out/kvm_board.kicad_dru out/kvm_board_panel.kicad_dru
-	kicad-cli pcb export gerbers --layers $(GERBER_LAYERS) -o out/jlcpcb/gerbers/ $(PANEL) >/dev/null
+	kicad-cli pcb export gerbers --subtract-soldermask --disable-aperture-macros --layers $(GERBER_LAYERS) -o out/jlcpcb/gerbers/ $(PANEL) >/dev/null
 	kicad-cli pcb export drill --format excellon --excellon-units mm --excellon-separate-th -o out/jlcpcb/gerbers/ $(PANEL) >/dev/null
 	python3 hw/make_fab.py
 	cd out/jlcpcb && rm -f gerbers.zip && cd gerbers && zip -q ../gerbers.zip *

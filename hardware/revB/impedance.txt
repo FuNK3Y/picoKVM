@@ -1,0 +1,8 @@
+validation: single microstrip, rectangular trace, no mask
+  W=0.15  solver  54.55 ohm   Hammerstad-Jensen  53.68 ohm   diff +1.6 %
+  W=0.20  solver  46.80 ohm   Hammerstad-Jensen  46.15 ohm   diff +1.4 %
+  W=0.30  solver  36.63 ohm   Hammerstad-Jensen  36.24 ohm   diff +1.1 %
+
+our USB pairs on JLC04161H-3313 (L1 over GND L2), trapezoid etch
+  W=0.150 S=0.150 without solder mask: Zdiff =  98.8 ohm  (eps_eff 2.56)
+  W=0.150 S=0.150 with    solder mask: Zdiff =  90.9 ohm  (eps_eff 3.03)

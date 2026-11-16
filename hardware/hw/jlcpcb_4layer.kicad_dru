@@ -62,3 +62,17 @@
 	(constraint text_thickness (min 0.15mm))
 	(constraint text_height (min 1mm)))
 
+
+# Inside the Type-A stacks' pin fields the SuperSpeed pairs squeeze between
+# pin rows 0.4 mm apart: necked to 0.105 / 0.105 mm there (route_pairs.py), and
+# the USB 2.0 pairs split round a pin.
+(rule "USB pairs in a stack's pin field"
+	(condition "A.NetClass == 'USB_DIFF' && (A.intersectsCourtyard('J3') || A.intersectsCourtyard('J10'))")
+	(constraint diff_pair_gap (min 0.09mm) (max 3mm))
+	(constraint clearance (min 0.1mm)))
+
+# ... but the ground pour keeps a normal distance there: JLC's DFM reports
+# copper-to-pour under 4 mil (0.1016 mm) as an error
+(rule "Pour in a stack's pin field"
+	(condition "A.Type == 'zone' && (A.intersectsCourtyard('J3') || A.intersectsCourtyard('J10'))")
+	(constraint clearance (min 0.15mm)))

@@ -5,10 +5,10 @@ board: out/kvm_board.kicad_pcb -> out/kvm_board_panel.kicad_pcb.
 The board itself is untouched and keeps its coordinates, so the CPL (made
 from the board) stays valid for the panel Gerbers.  Added:
 
-  * 5 mm rails on the LEFT and RIGHT (75 mm) edges only: the front and rear
+  * 5 mm rails on the LEFT and RIGHT edges only: the front and rear
     edges carry connectors that protrude 1.5 mm.
   * a 2 mm routed gap between board and rail, bridged by two 5 mm tabs per
-    side, away from J8 (left), the ESP32 antenna keep-out (right) and the
+    side, away from the Grove ports (left), the ESP32 antenna keep-out (right) and the
     corner screw holes;
   * mouse bites in each tab: 0.5 mm NPTH at 0.95 mm pitch (0.45 mm web, JLC minimum), tangent to the
     board edge, so a broken-off tab leaves at most a ~0.3 mm nub;
@@ -25,15 +25,18 @@ import uuid
 
 SRC = "out/kvm_board.kicad_pcb"
 DST = "out/kvm_board_panel.kicad_pcb"
-W, H = 112.0, 75.0
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from layout import W, H, ANTENNA_KEEPOUT, EDGE_PARTS  # noqa: E402
+
 RAIL, GAP = 5.0, 2.0
 TAB_W = 5.0
-TABS = {"left": (10.0, 65.0),     # J8 sits at y 31-44
-        "right": (8.0, 69.0)}     # ESP32 antenna keep-out is y 16-64
+_grove = (EDGE_PARTS["J8"][1] + EDGE_PARTS["J11"][1]) / 2
+TABS = {"left": (_grove - 22.0, _grove + 22.0),                             # clear of the Grove ports
+        "right": (ANTENNA_KEEPOUT[1] - 4.0, ANTENNA_KEEPOUT[3] + 4.0)}      # and of the antenna keep-out
 BITE_D, BITE_PITCH = 0.5, 0.95  # 0.45 mm web: JLC min hole spacing
 XL = -GAP - RAIL / 2              # left rail centre line
 XR = W + GAP + RAIL / 2           # right rail centre line
-FIDUCIALS = [(XL, 20.0), (XL, 55.0), (XR, 13.0)]   # right: above the antenna keep-out
+FIDUCIALS = [(XL, 20.0), (XL, H - 20.0), (XR, 3.0 + 4.0)]   # asymmetric
 TOOLING = [(XL, 3.0), (XL, H - 3.0), (XR, 3.0), (XR, H - 3.0)]
 TOOLING_D = 1.152
 
