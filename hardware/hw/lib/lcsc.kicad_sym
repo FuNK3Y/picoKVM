@@ -1951,4 +1951,633 @@
       )
     )
   )
+
+  (symbol "HC-USB3.0-L175-2X1-P"
+    (in_bom yes)
+    (on_board yes)
+    (property
+      "Reference"
+      "USB"
+      (id 0)
+      (at 0 19.05 0)
+      (effects (font (size 1.27 1.27) ) )
+    )
+    (property
+      "Value"
+      "HC-USB3.0-L175-2X1-P"
+      (id 1)
+      (at 0 -16.51 0)
+      (effects (font (size 1.27 1.27) ) )
+    )
+    (property
+      "Footprint"
+      "lcsc:USB-A-TH_H181-AF2R06-12ALCR"
+      (id 2)
+      (at 0 -19.05 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (property
+      "Datasheet"
+      "https://www.lcsc.com/datasheet/C7501881.pdf"
+      (id 3)
+      (at 0 -21.59 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (property
+      "Manufacturer"
+      "HC(虹成电子)"
+      (id 4)
+      (at 0 -24.13 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (property
+      "MPN"
+      "HC-USB3.0-L175-2X1-P"
+      (id 5)
+      (at 0 -26.67 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (property
+      "LCSC Part"
+      "C7501881"
+      (id 6)
+      (at 0 -29.21 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (property
+      "ki_keywords"
+      "USB Connectors"
+      (id 8)
+      (at 0 -31.75 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (symbol "HC-USB3.0-L175-2X1-P_0_1"
+      (rectangle
+        (start -17.78 11.43)
+        (end 17.78 -13.97)
+        (stroke (width 0) (type default))
+        (fill (type background))
+      )
+      (circle
+        (center -16.51 10.16)
+        (radius 0.38)
+        (stroke (width 0) (type default))
+        (fill (type none))
+      )
+      (pin unspecified line
+        (at -20.32 8.89 0)
+        (length 2.54)
+        (name "VBUS" (effects (font (size 1.27 1.27))))
+        (number "1" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -20.32 6.35 0)
+        (length 2.54)
+        (name "D-" (effects (font (size 1.27 1.27))))
+        (number "2" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -20.32 3.81 0)
+        (length 2.54)
+        (name "D+" (effects (font (size 1.27 1.27))))
+        (number "3" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -20.32 1.27 0)
+        (length 2.54)
+        (name "GND" (effects (font (size 1.27 1.27))))
+        (number "4" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -20.32 -1.27 0)
+        (length 2.54)
+        (name "SSRX-" (effects (font (size 1.27 1.27))))
+        (number "5" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -20.32 -3.81 0)
+        (length 2.54)
+        (name "SSRX+" (effects (font (size 1.27 1.27))))
+        (number "6" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -20.32 -6.35 0)
+        (length 2.54)
+        (name "GND_DRAIN" (effects (font (size 1.27 1.27))))
+        (number "7" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -20.32 -8.89 0)
+        (length 2.54)
+        (name "SSTX-" (effects (font (size 1.27 1.27))))
+        (number "8" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -20.32 -11.43 0)
+        (length 2.54)
+        (name "SSTX+" (effects (font (size 1.27 1.27))))
+        (number "9" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 20.32 -11.43 180)
+        (length 2.54)
+        (name "VBUS" (effects (font (size 1.27 1.27))))
+        (number "10" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 20.32 -8.89 180)
+        (length 2.54)
+        (name "D-" (effects (font (size 1.27 1.27))))
+        (number "11" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 20.32 -6.35 180)
+        (length 2.54)
+        (name "D+" (effects (font (size 1.27 1.27))))
+        (number "12" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 20.32 -3.81 180)
+        (length 2.54)
+        (name "GND" (effects (font (size 1.27 1.27))))
+        (number "13" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 20.32 -1.27 180)
+        (length 2.54)
+        (name "SSRX-" (effects (font (size 1.27 1.27))))
+        (number "14" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 20.32 1.27 180)
+        (length 2.54)
+        (name "SSRX+" (effects (font (size 1.27 1.27))))
+        (number "15" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 20.32 3.81 180)
+        (length 2.54)
+        (name "GND_DRAIN" (effects (font (size 1.27 1.27))))
+        (number "16" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 20.32 6.35 180)
+        (length 2.54)
+        (name "SSTX-" (effects (font (size 1.27 1.27))))
+        (number "17" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 20.32 8.89 180)
+        (length 2.54)
+        (name "SSTX+" (effects (font (size 1.27 1.27))))
+        (number "18" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -1.27 13.97 270)
+        (length 2.54)
+        (name "GND" (effects (font (size 1.27 1.27))))
+        (number "19" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 1.27 13.97 270)
+        (length 2.54)
+        (name "GND" (effects (font (size 1.27 1.27))))
+        (number "20" (effects (font (size 1.27 1.27))))
+      )
+    )
+  )
+
+  (symbol "SWPA3015S2R2MT"
+    (in_bom yes)
+    (on_board yes)
+    (property
+      "Reference"
+      "L"
+      (id 0)
+      (at 0 5.08 0)
+      (effects (font (size 1.27 1.27) ) )
+    )
+    (property
+      "Value"
+      "SWPA3015S2R2MT"
+      (id 1)
+      (at 0 -5.08 0)
+      (effects (font (size 1.27 1.27) ) )
+    )
+    (property
+      "Footprint"
+      "lcsc:IND-SMD_L3.0-W3.0"
+      (id 2)
+      (at 0 -7.62 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (property
+      "Datasheet"
+      "https://lcsc.com/product-detail/Inductors-SMD_SWPA3015S2R2MT_C43389.html"
+      (id 3)
+      (at 0 -10.16 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (property
+      "Manufacturer"
+      "Sunlord(顺络)"
+      (id 4)
+      (at 0 -12.70 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (property
+      "MPN"
+      "SWPA3015S2R2MT"
+      (id 5)
+      (at 0 -15.24 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (property
+      "LCSC Part"
+      "C43389"
+      (id 6)
+      (at 0 -17.78 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (property
+      "ki_keywords"
+      "Power Inductors"
+      (id 8)
+      (at 0 -20.32 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (property
+      "ki_description"
+      "SWPA3015S2R2MT"
+      (id 9)
+      (at 0 -22.86 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (symbol "SWPA3015S2R2MT_0_1"
+      (arc
+        (start -2.27 0.02)
+        (mid -3.28 1.11)
+        (end -4.29 0.02)
+        (stroke (width 0) (type default))
+        (fill (type none))
+      )
+      (arc
+        (start -0.11 0.02)
+        (mid -1.12 1.11)
+        (end -2.13 0.02)
+        (stroke (width 0) (type default))
+        (fill (type none))
+      )
+      (arc
+        (start 2.04 0.02)
+        (mid 1.03 1.11)
+        (end 0.02 0.02)
+        (stroke (width 0) (type default))
+        (fill (type none))
+      )
+      (arc
+        (start 4.23 0.02)
+        (mid 3.22 1.09)
+        (end 2.21 0.02)
+        (stroke (width 0) (type default))
+        (fill (type none))
+      )
+      (pin unspecified line
+        (at 5.08 -0.00 180)
+        (length 1.27)
+        (name "2" (effects (font (size 1.27 1.27))))
+        (number "2" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -5.08 -0.00 0)
+        (length 1.27)
+        (name "1" (effects (font (size 1.27 1.27))))
+        (number "1" (effects (font (size 1.27 1.27))))
+      )
+    )
+  )
+
+  (symbol "QJ11191-DFB2-4H"
+    (in_bom yes)
+    (on_board yes)
+    (property
+      "Reference"
+      "U"
+      (id 0)
+      (at 0 5.08 0)
+      (effects (font (size 1.27 1.27) ) )
+    )
+    (property
+      "Value"
+      "QJ11191-DFB2-4H"
+      (id 1)
+      (at 0 -5.08 0)
+      (effects (font (size 1.27 1.27) ) )
+    )
+    (property
+      "Footprint"
+      "lcsc:HDMI-TH_QJ11191-DFB1-4F"
+      (id 2)
+      (at 0 -7.62 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (property
+      "Datasheet"
+      "https://www.lcsc.com/datasheet/C225760.pdf"
+      (id 3)
+      (at 0 -10.16 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (property
+      "Manufacturer"
+      "FOXCONN(富士康)"
+      (id 4)
+      (at 0 -12.70 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (property
+      "MPN"
+      "QJ11191-DFB2-4H"
+      (id 5)
+      (at 0 -15.24 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (property
+      "LCSC Part"
+      "C225760"
+      (id 6)
+      (at 0 -17.78 0)
+      (effects (font (size 1.27 1.27) ) hide)
+    )
+    (symbol "QJ11191-DFB2-4H_1_1"
+      (rectangle
+        (start -25.40 15.24)
+        (end 25.40 -12.70)
+        (stroke (width 0) (type default))
+        (fill (type background))
+      )
+      (circle
+        (center -24.13 13.97)
+        (radius 0.38)
+        (stroke (width 0) (type default))
+        (fill (type none))
+      )
+      (text "HDMI-UP"
+        (at 1.27 -5.08 270)
+        (effects (font (size 3.17 3.17)))
+      )
+      (pin unspecified line
+        (at 0.00 -15.24 90)
+        (length 2.54)
+        (name "EP" (effects (font (size 1.27 1.27))))
+        (number "0" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 27.94 11.43 180)
+        (length 2.54)
+        (name "HotPlugDetect" (effects (font (size 1.27 1.27))))
+        (number "P19" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 27.94 8.89 180)
+        (length 2.54)
+        (name "+5VPower" (effects (font (size 1.27 1.27))))
+        (number "P18" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 27.94 6.35 180)
+        (length 2.54)
+        (name "DDC/CECGround" (effects (font (size 1.27 1.27))))
+        (number "P17" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 27.94 3.81 180)
+        (length 2.54)
+        (name "SDA" (effects (font (size 1.27 1.27))))
+        (number "P16" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 27.94 1.27 180)
+        (length 2.54)
+        (name "SCL" (effects (font (size 1.27 1.27))))
+        (number "P15" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 27.94 -1.27 180)
+        (length 2.54)
+        (name "Reserved(N.C.)" (effects (font (size 1.27 1.27))))
+        (number "P14" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 27.94 -3.81 180)
+        (length 2.54)
+        (name "CEC" (effects (font (size 1.27 1.27))))
+        (number "P13" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 27.94 -6.35 180)
+        (length 2.54)
+        (name "TMDSClock-" (effects (font (size 1.27 1.27))))
+        (number "P12" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 27.94 -8.89 180)
+        (length 2.54)
+        (name "TMDSClockShield" (effects (font (size 1.27 1.27))))
+        (number "P11" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -27.94 -10.16 0)
+        (length 2.54)
+        (name "TMDSClock+" (effects (font (size 1.27 1.27))))
+        (number "P10" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -27.94 -7.62 0)
+        (length 2.54)
+        (name "TMDSData0-" (effects (font (size 1.27 1.27))))
+        (number "P9" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -27.94 -5.08 0)
+        (length 2.54)
+        (name "TMDSData0Shield" (effects (font (size 1.27 1.27))))
+        (number "P8" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -27.94 -2.54 0)
+        (length 2.54)
+        (name "TMDSData0+" (effects (font (size 1.27 1.27))))
+        (number "P7" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -27.94 -0.00 0)
+        (length 2.54)
+        (name "TMDSData1-" (effects (font (size 1.27 1.27))))
+        (number "P6" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -27.94 2.54 0)
+        (length 2.54)
+        (name "TMDSData1Shield" (effects (font (size 1.27 1.27))))
+        (number "P5" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -27.94 5.08 0)
+        (length 2.54)
+        (name "TMDSData1+" (effects (font (size 1.27 1.27))))
+        (number "P4" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -27.94 7.62 0)
+        (length 2.54)
+        (name "TMDSData2-" (effects (font (size 1.27 1.27))))
+        (number "P3" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -27.94 10.16 0)
+        (length 2.54)
+        (name "TMDSData2Shield" (effects (font (size 1.27 1.27))))
+        (number "P2" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -27.94 12.70 0)
+        (length 2.54)
+        (name "TMDSData2+" (effects (font (size 1.27 1.27))))
+        (number "P1" (effects (font (size 1.27 1.27))))
+      )
+    )
+    (symbol "QJ11191-DFB2-4H_2_1"
+      (rectangle
+        (start -20.32 12.70)
+        (end 30.48 -15.24)
+        (stroke (width 0) (type default))
+        (fill (type background))
+      )
+      (circle
+        (center -19.05 11.43)
+        (radius 0.38)
+        (stroke (width 0) (type default))
+        (fill (type none))
+      )
+      (text "HDMI-DOWN"
+        (at 6.35 -11.43 270)
+        (effects (font (size 3.17 3.17)))
+      )
+      (pin unspecified line
+        (at 33.02 8.89 180)
+        (length 2.54)
+        (name "HotPlugDetect" (effects (font (size 1.27 1.27))))
+        (number "19" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 33.02 6.35 180)
+        (length 2.54)
+        (name "+5VPower" (effects (font (size 1.27 1.27))))
+        (number "18" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 33.02 3.81 180)
+        (length 2.54)
+        (name "DDC/CECGround" (effects (font (size 1.27 1.27))))
+        (number "17" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 33.02 1.27 180)
+        (length 2.54)
+        (name "SDA" (effects (font (size 1.27 1.27))))
+        (number "16" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 33.02 -1.27 180)
+        (length 2.54)
+        (name "SCL" (effects (font (size 1.27 1.27))))
+        (number "15" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 33.02 -3.81 180)
+        (length 2.54)
+        (name "Reserved(N.C.)" (effects (font (size 1.27 1.27))))
+        (number "14" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 33.02 -6.35 180)
+        (length 2.54)
+        (name "CEC" (effects (font (size 1.27 1.27))))
+        (number "13" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 33.02 -8.89 180)
+        (length 2.54)
+        (name "TMDSClock-" (effects (font (size 1.27 1.27))))
+        (number "12" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at 33.02 -11.43 180)
+        (length 2.54)
+        (name "TMDSClockShield" (effects (font (size 1.27 1.27))))
+        (number "11" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -22.86 -12.70 0)
+        (length 2.54)
+        (name "TMDSClock+" (effects (font (size 1.27 1.27))))
+        (number "10" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -22.86 -10.16 0)
+        (length 2.54)
+        (name "TMDSData0-" (effects (font (size 1.27 1.27))))
+        (number "9" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -22.86 -7.62 0)
+        (length 2.54)
+        (name "TMDSData0Shield" (effects (font (size 1.27 1.27))))
+        (number "8" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -22.86 -5.08 0)
+        (length 2.54)
+        (name "TMDSData0+" (effects (font (size 1.27 1.27))))
+        (number "7" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -22.86 -2.54 0)
+        (length 2.54)
+        (name "TMDSData1-" (effects (font (size 1.27 1.27))))
+        (number "6" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -22.86 -0.00 0)
+        (length 2.54)
+        (name "TMDSData1Shield" (effects (font (size 1.27 1.27))))
+        (number "5" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -22.86 2.54 0)
+        (length 2.54)
+        (name "TMDSData1+" (effects (font (size 1.27 1.27))))
+        (number "4" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -22.86 5.08 0)
+        (length 2.54)
+        (name "TMDSData2-" (effects (font (size 1.27 1.27))))
+        (number "3" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -22.86 7.62 0)
+        (length 2.54)
+        (name "TMDSData2Shield" (effects (font (size 1.27 1.27))))
+        (number "2" (effects (font (size 1.27 1.27))))
+      )
+      (pin unspecified line
+        (at -22.86 10.16 0)
+        (length 2.54)
+        (name "TMDSData2+" (effects (font (size 1.27 1.27))))
+        (number "1" (effects (font (size 1.27 1.27))))
+      )
+    )
+  )
 )

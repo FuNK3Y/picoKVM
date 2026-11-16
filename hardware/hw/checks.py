@@ -29,7 +29,7 @@ THT_SMD = 2.03
 MASK = 0.08
 SKEW = 0.1
 # connector -> TS3USB221A (U3) pins per pair
-USB2 = {"PCA": ("J1", ("1", "2")), "PCB": ("J2", ("3", "4")), "PER": ("J3", ("8", "7"))}
+USB2 = {"PCA": ("J1", ("1", "2")), "PCB": ("J2", ("3", "4"))}     # the rest: route_pairs.py reports its own
 
 mm, MM = pcbnew.ToMM, pcbnew.FromMM
 failures = []

@@ -1,0 +1,27 @@
+Board 98 x 102 mm, origin top-left (rear-left corner), y toward the front.
+ESP32 antenna flush with the right edge (y 25..43); keep metal and conductive filament >= 5 mm away from it.
+M3 holes at (4,4) (94,4) (4,98) (94,98); keep 8 mm around them clear.
+Connectors stick out past the edge by up to 1.5 mm (2 mm wall - 0.5 mm);
+less where a pad would get too close to the edge.
+
+ref  part                         edge    centre along edge  protrusion
+J4   USB_C_Receptacle_USB2.0_16P  rear             13.50 mm     1.50 mm
+J1   HC-USB3.0-L1845-BF           rear             27.00 mm     1.50 mm
+J2   HC-USB3.0-L1845-BF           rear             45.00 mm     1.50 mm
+J3   HC-USB3.0-L175-2X1-P         front            18.75 mm     1.50 mm
+J10  HC-USB3.0-L175-2X1-P         front            37.75 mm     1.50 mm
+J5   QJ11191-DFB2-4H              front            57.75 mm     1.50 mm
+J6   QJ11191-DFB2-4H              front            80.25 mm     1.50 mm
+J8   GROVE_BTN                    left             41.50 mm     0.38 mm
+J11  GROVE_I2C                    left             54.50 mm     0.38 mm
+
+Side-emitting RGB status LED (SK6812SIDE-A; lens 4.0 x 2.0 mm, light exits
+the rear edge; ~2 mm hole or light pipe in the wall, centre 1.0 mm above
+the board surface, lens face 0.2 mm inside the edge):
+  D3 at x = 76.00 mm
+
+Buttons (TS-1187A-C-F-B, 5.1 x 5.1 mm, top of actuator 3.0 mm above the board;
+press them through lid flexures):
+  SW1 RESET  centre (60.00, 19.00) mm
+  SW2 BOOT   centre (68.00, 19.00) mm
+  SW3 PC SW  centre (76.00, 19.00) mm

@@ -16,30 +16,49 @@ from collections import defaultdict
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, "..", "out"))
 
-POWER = {"GND", "+3V3", "+5V_SYS"}
+POWER = {"GND", "+3V3", "+1V1", "+5V_SYS"}
 
 BLOCKS = [
-    ("USB data path (USB 3.0 + USB 2.0 switching)",
-     "USB A / USB B Type-B in, peripheral Type-A out.  U2 switches the SuperSpeed "
-     "pairs, U3 the USB 2.0 pair; both follow USB_SEL.  ESD at every connector.",
-     ["J1", "J2", "J3", "U17", "U18", "U19", "U2", "U3", "U11", "U12", "U13"]),
-    ("Peripheral power",
-     "U4 picks the source (follows USB_SEL via PR1, MODE tied high); U20 switches "
-     "the port on/off (PERIPH_EN), limits it to 1.2-1.38 A and flags faults.",
-     ["U4", "U20"]),
+    ("PC side: USB A / USB B in, switched to the hub",
+     "Two Type-B inputs.  U2 switches the SuperSpeed pairs, U3 the USB 2.0 pair; both follow "
+     "USB_SEL.  ESD at each connector.  The muxes' common side is the hub's upstream port.",
+     ["J1", "J2", "U17", "U18", "U2", "U3", "U11", "U12"]),
+    ("USB 3.0 hub",
+     "TUSB8041, held in reset by HUB_RESET_N until the ESP32 releases it.  Straps at their "
+     "defaults: per-port power switching, PWRCTL active high.  SMBus is optional (HUB_CFG).",
+     ["U30", "Y1"]),
+    ("Hub ports 1-4: Type-A stacks, ESD, port power",
+     "J3 = ports 1 (pins 10-18) and 2 (pins 1-9), J10 = ports 3 and 4.  One TPS2553 per port, "
+     "enabled by the hub, 1.2-1.38 A.  100 nF in series with every transmit pair.",
+     ["J3", "J10", "U37", "U38", "U39", "U40", "U41", "U42", "U43", "U44",
+      "U33", "U34", "U35", "U36"]),
+    ("Keyboard interception (hub port 4)",
+     "KBD_INTERCEPT low: connector <-> U47 <-> U48 <-> hub.  High: connector <-> RP2350 "
+     "PIO-USB host (GPIO0/1), RP2350 native USB <-> hub.  U47 runs D+ through its D- channel "
+     "(and vice versa) on purpose: see kvm_board.py.  The ESP32 reaches the RP2350's flash "
+     "through 1k resistors (RP_PROG_*) and holds its RUN pin.",
+     ["U45", "U46", "Y2", "U47", "U48", "D5", "TP1", "TP2"]),
+    ("Port power source",
+     "U4 picks the selected PC's VBUS (PR1 = USB_SEL); U32 prefers the AUX input when it is "
+     "above ~4.3 V, so a charger there powers the four ports.",
+     ["U4", "U32"]),
     ("System power",
-     "Ideal-diode OR of USB A / USB B / AUX VBUS into +5V_SYS, then the 3.3 V LDO.  "
-     "J4 is the aux / flashing USB-C.",
-     ["U6", "U7", "U8", "U5", "J4", "U14"]),
-    ("HDMI 1 - DDC/CI", "Only DDC and +5V are wired (HPD unused); no video.",
-     ["J5", "U9", "U15", "U21", "F2"]),
-    ("HDMI 2 - DDC/CI", "Only DDC and +5V are wired (HPD unused); no video.",
-     ["J6", "U10", "U16", "U22", "F3"]),
+     "Ideal-diode OR of USB A / USB B / AUX VBUS into +5V_SYS, then two bucks: 3.3 V and "
+     "1.1 V (hub core + RP2350 core).  J4 is the aux / flashing USB-C.",
+     ["U6", "U7", "U8", "U5", "L1", "U31", "L2", "J4", "U14"]),
+    ("HDMI 1 / 3 - DDC/CI (J5: lower = 1, upper = 3)", "Only DDC and +5V are wired (HPD unused); no video.",
+     ["J5", "U15", "U21", "F2", "U19", "F6"]),
+    ("HDMI 2 / 4 - DDC/CI (J6: lower = 2, upper = 4)", "Only DDC and +5V are wired (HPD unused); no video.",
+     ["J6", "U16", "U22", "F3", "U20", "F7"]),
     ("Grove button port (M5Stack pinout)",
      "Yellow = LED data (SK6812), white = key, red = 5 V via 100 mA PTC.",
      ["J8", "F4"]),
+    ("I2C multiplexer and Grove I2C port",
+     "One ESP32 I2C bus (GPIO1 / GPIO2) fans out through U13 (0x70): channel 0 HDMI 1, "
+     "1 HDMI 2, 2 hub SMBus, 3 Grove J11 (M5Stack port A: yellow = SDA, white = SCL), 4 HDMI 3, 5 HDMI 4.",
+     ["U13", "J11", "F5"]),
     ("ESP32-S3 controller, buttons, LEDs, headers", "",
-     ["U1", "SW1", "SW2", "SW3", "D3", "D4", "J7", "J9"]),
+     ["U1", "SW1", "SW2", "SW3", "D3", "D4", "TP3", "TP4"]),
 ]
 
 

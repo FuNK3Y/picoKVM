@@ -5,6 +5,7 @@ Via work around the autorouter, on out/kvm_board.kicad_pcb.
                              POWER track get a neck-down stub; every SMD pad
                              on a plane net (GND -> In1, +3V3 -> In2) gets a
                              stub + via, so Freerouting only routes signals
+                             (route_nets.py then ties the +1V1 vias together)
   python3 finish.py stitch   after routing: GND stitching vias on a grid,
                              tying the F/B pours to In1
 
@@ -12,6 +13,7 @@ Every candidate via/track is checked against all other-net copper first.
 """
 
 import math
+import re
 import sys
 
 import os
@@ -20,7 +22,7 @@ import pcbnew
 PCB = "out/kvm_board.kicad_pcb"
 mm = pcbnew.FromMM
 VIA_D, VIA_DRILL = 0.45, 0.3       # GND (Default net class); 0.3 mm = JLC free tier
-VIA_SIZE = {"+3V3": (0.5, 0.3)}    # POWER net class
+VIA_SIZE = {"+3V3": (0.5, 0.3), "+1V1": (0.5, 0.3)}    # POWER net class
 HOLE_GAP_PAD = 0.5                 # drill edge to a pin's drill (JLC 0.45)
 HOLE_GAP_VIA = 0.25                # drill edge to another via's drill (JLC 0.2)
 CLEAR = 0.15          # via/stub to other-net copper (board min 0.127)
@@ -28,8 +30,26 @@ VIA_PAD_GAP = 0.2     # via copper to any SMD pad, same net too: a via at a
                       # pad edge wicks solder away from the joint (JLC DFM)
 GRID = 4.0            # stitching pitch (mm)
 DIFF_CLEAR = 0.5      # keep stitching vias this far from USB pairs
-PLANE_NETS = ("GND", "+3V3")
+PLANE_NETS = ("GND", "+3V3", "+1V1")      # In1, In2, and the B.Cu pour of layout.V1_OUTLINE
+# QFN supply pins: via under the package, between the pad row and the thermal
+# pad, at one of these distances inward of the pad centre (the second one for
+# the neighbour of a pin that took the first)
+INWARD = {"U30": (0.9,), "U45": (0.85, 1.32)}
+# Supply pins boxed in by hand-routed pairs, where the outward sweep finds
+# nothing: via at this offset (mm) from the pad centre, placed before
+# anything else can take the spot.  U2 pin 6 (VDD) sits between the upstream
+# RX and TX pairs; its via goes in the pocket beside the TX pair's bend.
+FORCED = {("U2", "6"): (-0.23, 0.86)}
+# Supply pins tied to a same-net neighbour of the same part instead of a via
+# of their own: (ref, pin, neighbour).  The RP2350's pin 53 (+3V3) would put
+# its via straight above pin 52, the only way out for USB D+.
+PIN_TIES = [("U45", "53", "54")]
 ALL_CU = [pcbnew.F_Cu, pcbnew.In1_Cu, pcbnew.In2_Cu, pcbnew.B_Cu]
+
+
+def is_pair(name):
+    """Nets routed by route_ss.py / route_usb2.py / route_pairs.py."""
+    return bool(re.match(r"(PCA|PCB|UPH?|P\d|H\d|KBT)_(SS[TR]X_[PN]|D[PN])$", name))
 
 
 class Copper:
@@ -78,14 +98,14 @@ class Copper:
                     for dx, dy in ((w, 0), (-w, 0), (0, w), (0, -w))]
         return any(z.Outline().Contains(p) for z in self.keepouts for p in pts)
 
-    def clear(self, item, layers, net, clearance=CLEAR, diff_clear=None):
+    def clear(self, item, layers, net, clearance=CLEAR, diff_clear=None, hole_gap=HOLE_GAP_PAD):
         if self.in_keepout(item):
             return False
         for it in self.items:
             if it.GetNetCode() == net.GetNetCode() and it.GetNetCode() != 0:
                 continue
             cl = clearance
-            if diff_clear and it.GetNetname().startswith(("PCA_", "PCB_", "PER_")):
+            if diff_clear and is_pair(it.GetNetname()):
                 cl = diff_clear
             for layer in layers:
                 if it.IsOnLayer(layer) and item.IsOnLayer(layer) and \
@@ -97,7 +117,7 @@ class Copper:
             r = item.GetDrillValue() / 2
             for h in self.holes:
                 if (h.GetPosition() - item.GetPosition()).EuclideanNorm() < \
-                        h.GetDrillSize().x / 2 + r + mm(HOLE_GAP_PAD):
+                        h.GetDrillSize().x / 2 + r + mm(hole_gap):
                     return False
             for v in self.items:
                 if v is not item and v.GetClass() == "PCB_VIA" and \
@@ -107,10 +127,10 @@ class Copper:
         return True
 
 
-def via(board, net, p):
+def via(board, net, p, small=False):
     v = pcbnew.PCB_VIA(board)
     v.SetPosition(p)
-    d, drill = VIA_SIZE.get(net.GetNetname(), (VIA_D, VIA_DRILL))
+    d, drill = (VIA_D, VIA_DRILL) if small else VIA_SIZE.get(net.GetNetname(), (VIA_D, VIA_DRILL))
     v.SetWidth(mm(d))
     v.SetDrill(mm(drill))
     v.SetNet(net)
@@ -156,8 +176,34 @@ def fanout(board):
             if pad.GetNetname() in PLANE_NETS and not pad.GetDrillSize().x]
     # pins already reached through a same-net exposed pad go last: their
     # extra via is a bonus and must not take the only spot a neighbour has
-    work.sort(key=lambda fp_pad: same_net_ep(*fp_pad) is not None)
+    work.sort(key=lambda fp_pad: (same_net_ep(*fp_pad) is not None, fp_pad[1].GetNetname() != "+3V3"))
+    forced = set()
+    for ref, pin, other in PIN_TIES:
+        fp = board.FindFootprintByReference(ref)
+        a_, b_ = (next(q for q in fp.Pads() if q.GetNumber() == n) for n in (pin, other))
+        t = track(board, a_.GetNet(), a_.GetPosition(), b_.GetPosition(), pcbnew.F_Cu, 0.15)
+        board.Add(t); cu.add(t)
+        forced.add((ref, pin))
+        placed += 1
     for fp, pad in work:
+        off = FORCED.get((fp.GetReference(), pad.GetNumber()))
+        if off is None:
+            continue
+        c = pad.GetPosition()
+        p = c + pcbnew.VECTOR2I(mm(off[0]), mm(off[1]))
+        v = via(board, pad.GetNet(), p, small=True)
+        t = track(board, pad.GetNet(), c, p, pcbnew.F_Cu, 0.15)
+        if cu.clear(v, ALL_CU, pad.GetNet()) and cu.clear(t, [pcbnew.F_Cu], pad.GetNet(), clearance=0.1) \
+                and not cu.on_pad(v):
+            for it in (v, t):
+                board.Add(it); cu.add(it)
+            forced.add((fp.GetReference(), pad.GetNumber()))
+            placed += 1
+        else:
+            print(f"forced via for {fp.GetReference()}.{pad.GetNumber()} does not fit")
+    for fp, pad in work:
+        if (fp.GetReference(), pad.GetNumber()) in forced:
+            continue
         net = pad.GetNet()
         c = pad.GetPosition()
         size = pad.GetSize(pcbnew.F_Cu)
@@ -182,8 +228,10 @@ def fanout(board):
         # a pin next to an exposed pad of the same net joins it inward ...
         ep = same_net_ep(fp, pad)
         if ep is not None:
-            t = track(board, net, c, ep.GetPosition(), pcbnew.F_Cu)
-            if cu.clear(t, [pcbnew.F_Cu], net):
+            # (fine-pitch rows: at pad width, with JLC's 0.1 mm to the neighbours)
+            fine = pcbnew.ToMM(min(size.x, size.y)) < 0.25
+            t = track(board, net, c, ep.GetPosition(), pcbnew.F_Cu, 0.15 if fine else 0.2)
+            if cu.clear(t, [pcbnew.F_Cu], net, clearance=0.1 if fine else CLEAR):
                 board.Add(t); cu.add(t); tied = True
         # ... and every pad gets its own stub + via outward, away from the
         # footprint centre, sweeping round if that direction is blocked
@@ -191,7 +239,22 @@ def fanout(board):
         a0 = math.atan2(d.y, d.x) if d.EuclideanNorm() else 0.0
         half = max(size.x, size.y) / 2
         done = False
-        for r in (0.45, 0.65, 0.9, 1.2, 1.6, 2.0, 2.5):
+        narrow = pcbnew.ToMM(min(size.x, size.y))
+        for inward in (INWARD.get(fp.GetReference(), ()) if not is_ep(pad) and net.GetNetname() != "GND" else ()):
+            # under the package, between the pad row and the thermal pad: the
+            # signals leaving the chip keep the outside to themselves
+            ax = abs(d.x) > abs(d.y)
+            p = pcbnew.VECTOR2I(c.x - int(math.copysign(mm(inward), d.x)), c.y) if ax else \
+                pcbnew.VECTOR2I(c.x, c.y - int(math.copysign(mm(inward), d.y)))
+            v = via(board, net, p, small=True)      # 0.45 mm: two fit under neighbouring pins
+            t = track(board, net, c, p, pcbnew.F_Cu, min(0.2, narrow))
+            # (the only holes near are the package's own thermal vias: via spacing)
+            if cu.clear(v, ALL_CU, net, hole_gap=HOLE_GAP_VIA) and cu.clear(t, [pcbnew.F_Cu], net):
+                for it in (v, t):
+                    board.Add(it); cu.add(it)
+                done = True
+                break
+        for r in (() if done else (0.45, 0.52, 0.65, 0.9, 1.2, 1.6, 2.0, 2.5)):
             for k in range(24):
                 a = a0 + (k + 1) // 2 * (1 if k % 2 else -1) * math.pi / 12
                 p = c + pcbnew.VECTOR2I(int((half + mm(r)) * math.cos(a)),
@@ -208,6 +271,33 @@ def fanout(board):
                     break
             if done:
                 break
+        if not (done or tied):
+            # boxed in (fine-pitch neighbours): join the nearest pad of the
+            # same net instead, usually the pin's own capacitor, which has
+            # its via
+            near = sorted((q for f2 in board.GetFootprints() if f2 is not fp for q in f2.Pads()
+                           if q.GetNetCode() == pad.GetNetCode() and not q.GetDrillSize().x
+                           and (q.GetPosition() - c).EuclideanNorm() < mm(3.6)),
+                          key=lambda q: (q.GetPosition() - c).EuclideanNorm())
+            ox, oy = (math.copysign(1, d.x), 0) if abs(d.x) > abs(d.y) else (0, math.copysign(1, d.y))
+            for q in near:
+                # straight, or out of the pad row first and then along it;
+                # 0.15 mm wide with JLC's 0.1 mm to the neighbouring pads
+                e = q.GetPosition()
+                routes = [[c, e]]
+                for k in (0.75, 0.9, 1.05, 1.3):
+                    m = c + pcbnew.VECTOR2I(int(ox * mm(k)), int(oy * mm(k)))
+                    routes.append([c, m, pcbnew.VECTOR2I(e.x, m.y) if ox == 0 else pcbnew.VECTOR2I(m.x, e.y), e])
+                for pts in routes:
+                    ts = [track(board, net, a, b, pcbnew.F_Cu, 0.15) for a, b in zip(pts, pts[1:])
+                          if (a.x, a.y) != (b.x, b.y)]      # (VECTOR2I's own != is not reliable)
+                    if ts and all(cu.clear(t, [pcbnew.F_Cu], net, clearance=0.1) for t in ts):
+                        for t in ts:
+                            board.Add(t); cu.add(t)
+                        tied = True
+                        break
+                if tied:
+                    break
         if done or tied:
             placed += 1
         else:
@@ -227,7 +317,7 @@ def necks(board):
     for fp in board.GetFootprints():
         for pad in fp.Pads():
             name = pad.GetNetname()
-            if not (name.startswith("VBUS") or name == "+5V_SYS") or pad.GetDrillSize().x:
+            if not (name.startswith("VBUS") or name in ("+5V_SYS", "U5_SW", "U31_SW")) or pad.GetDrillSize().x:
                 continue
             size = pad.GetSize(pcbnew.F_Cu)
             w, l = min(size.x, size.y), max(size.x, size.y)

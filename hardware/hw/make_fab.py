@@ -21,7 +21,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, "..", "out"))
 FAB = os.path.join(OUT, "jlcpcb")
 
-# LCSC part -> degrees to add after checking JLC's preview.
+# LCSC part -> degrees to add after checking JLC's preview (pin-numbering
+# differences are found automatically, see polarity() below).
 ROT_OFFSET = {}
 
 
@@ -98,8 +99,45 @@ def jlc_frame(fp, lcsc):
     return best[1], best[2], best[3]
 
 
+_jlc_pins = None
+
+
+def polarity(ref, lcsc, ours):
+    """Extra rotation for a part whose JLC library numbers the pins
+    differently from ours, from the pin names (jlcref.py's lcsc_pins.json vs
+    our schematic): jlc_frame() matches pads by number, so it would put the
+    LED C2286 (JLC: pin 1 = anode; KiCad's LED: pin 1 = cathode) on
+    backwards.  Returns (degrees, message or None)."""
+    global _jlc_pins
+    if _jlc_pins is None:
+        path = os.path.join(JLCREF, "lcsc_pins.json")
+        _jlc_pins = json.load(open(path)) if os.path.exists(path) else {}
+    theirs = _jlc_pins.get(lcsc)
+    if not theirs or not ours:
+        return 0, None
+
+    def by_name(d):         # name -> number, for names that identify one pin
+        n = defaultdict(list)
+        for num, name in d.items():
+            n[name.strip().upper()].append(num)
+        return {k: v[0] for k, v in n.items()
+                if len(v) == 1 and not k.isdigit() and k not in ("GND", "NC", "EP", "~")}
+
+    o, t = by_name(ours), by_name(theirs)
+    common = sorted(set(o) & set(t))
+    differ = [n for n in common if o[n] != t[n]]
+    if not differ:
+        return 0, None
+    if len(ours) == 2 and len(theirs) == 2 and len(differ) == len(common):
+        return 180, f"{ref} +180deg (JLC numbers {'/'.join(differ)} the other way round)"
+    return 0, f"{ref}: pin numbers differ from JLC's for {', '.join(differ)}"
+
+
 def main():
     os.makedirs(FAB, exist_ok=True)
+    sch = {p["ref"]: p.get("pin_names", {}) for p in
+           json.load(open(os.path.join(OUT, "kvm_board.json")))}
+    flipped, pin_warn = [], []
     board = pcbnew.LoadBoard(os.path.join(OUT, "kvm_board.kicad_pcb"))
     origin = board.GetDesignSettings().GetAuxOrigin()
 
@@ -129,8 +167,11 @@ def main():
                 (jpos - fp.GetPosition()).EuclideanNorm() > pcbnew.FromMM(0.05):
             fixed.append(f"{ref} {(jrot - fp.GetOrientationDegrees()) % 360:+.0f}deg "
                          f"{pcbnew.ToMM((jpos - fp.GetPosition()).EuclideanNorm()):.2f}mm")
+        extra, msg = polarity(ref, lcsc, sch.get(ref))
+        if msg:
+            (flipped if extra else pin_warn).append(msg)
         pos = jpos - origin
-        rot = (jrot + ROT_OFFSET.get(lcsc, 0)) % 360
+        rot = (jrot + extra + ROT_OFFSET.get(lcsc, 0)) % 360
         rows.append([ref, f"{pcbnew.ToMM(pos.x):.3f}mm",
                      f"{-pcbnew.ToMM(pos.y):.3f}mm",
                      "Top" if fp.GetLayer() == pcbnew.F_Cu else "Bottom",
@@ -158,6 +199,10 @@ def main():
     print(f"BOM: {len(groups)} lines, CPL: {len(rows)} placements")
     print(f"CPL in JLC's footprint frame: {len(fixed)} parts corrected"
           + (f" ({', '.join(fixed)})" if fixed else ""))
+    if flipped:
+        print("CPL pin numbering differs from JLC's, turned:", ", ".join(flipped))
+    if pin_warn:
+        print("  WARNING check in JLC's preview:", "; ".join(pin_warn))
     if missing:
         print("  WARNING no JLC reference footprint (run `make jlcref`):", ", ".join(missing))
     if bad:
